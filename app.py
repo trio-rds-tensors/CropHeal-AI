@@ -194,5 +194,16 @@ def predict():
         'chemical': suggestions.get('chemical_medicine', [])
     })
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    # Check if we should run in debug mode
+    debug_mode = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1", "t")
+    
+    port = int(os.getenv("PORT", 3000))
+
+    if debug_mode:
+        print(f"Running in Development Mode on port {port}")
+        app.run(host="0.0.0.0", port=port, debug=True)
+    else:
+        print(f"Running in Production Mode (Waitress) on port {port}")
+        from waitress import serve
+        serve(app, host="0.0.0.0", port=port)

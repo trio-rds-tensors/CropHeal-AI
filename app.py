@@ -198,7 +198,7 @@ if __name__ == "__main__":
     # Check if we should run in debug mode
     debug_mode = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1", "t")
     
-    port = int(os.getenv("PORT", 3000))
+    port = int(os.getenv("PORT", 7860))
 
     if debug_mode:
         print(f"Running in Development Mode on port {port}")

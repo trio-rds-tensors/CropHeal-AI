@@ -66,6 +66,13 @@ body {
   min-height: 100vh;
 }
 
+@media (min-width: 1024px) {
+  .app-container {
+    padding-left: 300px;
+    padding-right: 300px;
+  }
+}
+
 /* View Toggling */
 .view {
   display: none;
@@ -187,10 +194,10 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: 0 1.5rem;
   text-align: center;
   overflow: hidden;
-  min-height: 70vh;
+  min-height: calc(70vh - 60px);
 }
 
 .hero-bg {

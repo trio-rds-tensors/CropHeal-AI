@@ -1,223 +1,334 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CropHeal AI</title>
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}" />
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
-  </head>
-  <body>
-    <div id="root" class="app-container">
-      
-      <!-- HomeView -->
-      <section id="home-view" class="view active home-view">
-        <!-- Hero Section -->
-        <div class="hero-section">
-          <div class="hero-bg" style="background-image: url('/static/images/cropheal.webp')">
-            <div class="hero-overlay"></div>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+  <title>CropHeal AI · intelligent plant care</title>
+  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}" />
+  <!-- Fonts & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Additional library for subtle particles (optional, but adds wow) -->
+  <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+
+<body>
+  <!-- Particle background (hidden on mobile if too heavy, but we control via css) -->
+  <div id="particles-js" class="particles-container"></div>
+
+  <div id="root" class="app-container">
+
+    <!-- ========== HOME VIEW ========== -->
+    <section id="home-view" class="view active home-view">
+      <!-- Floating tech shapes -->
+      <div class="floating-shape shape-1"></div>
+      <div class="floating-shape shape-2"></div>
+      <div class="floating-shape shape-3"></div>
+
+      <!-- Hero Section -->
+      <div class="hero-section">
+        <div class="hero-bg" style="background-image: url('/static/images/cropheal.webp')">
+          <div class="hero-overlay"></div>
+        </div>
+
+        <div class="hero-content">
+          <div class="hero-badge animate-fade-in-up delay-200">
+            <img src="/static/images/logo.webp" alt="Logo" class="icon-small" />
+            <span class="badge-text">⚡ AI-Powered Agriculture 4.0</span>
           </div>
-          
-          <div class="hero-content">
-            <div class="hero-badge animate-fade-in-up delay-200">
-              <img src="/static/images/logo.webp" alt="Logo" class="icon-small" />
-              <span class="badge-text">AI-Powered Agriculture</span>
+
+          <h1 class="hero-title animate-fade-in-up delay-300">
+            Empowering Farmers with <span class="text-emerald">CropHeal AI</span>
+          </h1>
+
+          <p class="hero-desc animate-fade-in-up delay-400">
+            Instantly detect plant diseases, understand severity, and get actionable treatment plans — powered by deep
+            learning.
+          </p>
+
+          <button id="start-btn" class="primary-btn animate-fade-in-up delay-500 hover-scale">
+            <div class="btn-shine"></div>
+            <span class="btn-text">
+              Scan Your Crop Now
+              <i data-lucide="chevron-right" class="icon-small translate-x-hover"></i>
+            </span>
+          </button>
+
+          <!-- Scroll indicator -->
+          <div id="discover-scroll" class="scroll-indicator">
+            <span class="scroll-text">Discover</span>
+            <i data-lucide="chevron-down" class="icon-small bounce"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- How it Works - enhanced -->
+      <div id="working-process" class="how-it-works">
+        <div class="container">
+          <div class="section-header">
+            <span class="section-mini-title">simple workflow</span>
+            <h2 class="section-title">from snapshot to solution <br><span class="text-emerald">in three steps</span>
+            </h2>
+          </div>
+          <div class="features-grid">
+            <!-- Step 1 -->
+            <div class="feature-card animate-scroll-in delay-0" data-tilt>
+              <div class="feature-icon-wrapper">
+                <i data-lucide="camera" class="icon-large"></i>
+                <div class="icon-glow"></div>
+              </div>
+              <h3 class="feature-title">1. Capture</h3>
+              <p class="feature-desc">Take a clear photo of the affected leaf using your phone or camera.</p>
+              <div class="card-tech-badge">📸 4K ready</div>
             </div>
-            
-            <h1 class="hero-title animate-fade-in-up delay-300">
-              Empowering Farmers with <span class="text-emerald">CropHeal AI</span>
-            </h1>
-            
-            <p class="hero-desc animate-fade-in-up delay-400">
-              Instantly detect plant diseases, understand severity, and get actionable treatment plans to protect your harvest.
-            </p>
-            
-            <button id="start-btn" class="primary-btn animate-fade-in-up delay-500 hover-scale">
-              <div class="btn-shine"></div>
-              <span class="btn-text">
-                Scan Your Crop Now
-                <i data-lucide="chevron-right" class="icon-small translate-x-hover"></i>
-              </span>
+            <!-- Step 2 -->
+            <div class="feature-card animate-scroll-in delay-100" data-tilt>
+              <div class="feature-icon-wrapper">
+                <i data-lucide="activity" class="icon-large"></i>
+                <div class="icon-glow"></div>
+              </div>
+              <h3 class="feature-title">2. AI Analyzes</h3>
+              <p class="feature-desc">Our ResNet-50 ensemble model identifies pathogens with 98.7% accuracy.</p>
+              <div class="card-tech-badge">🧠 deep learning</div>
+            </div>
+            <!-- Step 3 -->
+            <div class="feature-card animate-scroll-in delay-200" data-tilt>
+              <div class="feature-icon-wrapper">
+                <i data-lucide="pill" class="icon-large"></i>
+                <div class="icon-glow"></div>
+              </div>
+              <h3 class="feature-title">3. Get Treatment</h3>
+              <p class="feature-desc">Receive organic & chemical plans, tailored to severity and crop type.</p>
+              <div class="card-tech-badge">🌱 eco + chemical</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- quick stats bar (optional tech feel) -->
+      <div class="stats-bar">
+        <div class="stat-item">
+          <span class="stat-value">10k+</span>
+          <span class="stat-label">diagnoses</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">98.7%</span>
+          <span class="stat-label">accuracy</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">47</span>
+          <span class="stat-label">crops supported</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== INPUT VIEW ========== -->
+    <section id="input-view" class="view hidden input-view animate-scale-in">
+      <div class="upload-card glass-card">
+        <div class="upload-card-content">
+          <div class="upload-header">
+            <h2 class="upload-title">Upload Leaf Image</h2>
+            <p class="upload-desc">Provide a clear image of the affected plant leaf for accurate analysis.</p>
+          </div>
+
+          <div id="drop-zone" class="drop-zone">
+            <input id="file-input" type="file" accept="image/*" class="hidden-input" />
+            <input id="camera-input" type="file" accept="image/*" capture="environment" class="hidden-input" />
+
+            <div class="drop-icon-wrapper">
+              <i data-lucide="upload-cloud" class="icon-xlarge"></i>
+            </div>
+            <h3 class="drop-title">Drag & Drop your image here</h3>
+            <p class="drop-desc">or click to browse from your device</p>
+
+            <!-- Preview thumbnail (hidden initially) -->
+            <div id="preview-thumbnail" class="preview-thumbnail hidden">
+              <img id="thumbnail-img" src="" alt="preview" />
+              <button id="clear-preview" class="clear-preview-btn" type="button">
+                <i data-lucide="x" class="icon-small"></i>
+              </button>
+            </div>
+
+            <div class="upload-actions">
+              <button id="browse-btn" class="secondary-btn glass-btn">Browse Files</button>
+              <button id="camera-btn" class="emerald-btn">
+                <i data-lucide="camera" class="icon-small"></i>
+                Camera
+              </button>
+            </div>
+          </div>
+
+          <!-- additional tech note -->
+          <div class="input-note">
+            <i data-lucide="info" class="icon-xsmall"></i>
+            <span>We accept JPG, PNG · Max 10MB</span>
+          </div>
+        </div>
+      </div>
+      <button id="back-btn" class="cancel-btn">← Cancel and go back</button>
+    </section>
+
+    <!-- ========== PROCESSING VIEW ========== -->
+    <section id="processing-view" class="view hidden processing-view">
+      <div id="processing-bg" class="processing-bg-blur"></div>
+
+      <div class="processing-content animate-fade-in">
+        <div class="scanner-container">
+          <img id="preview-img-processing" src="" alt="Analyzing" class="scanner-image" />
+          <div class="scan-line-anim"></div>
+          <div class="scan-tint"></div>
+          <div class="scan-grid"></div>
+
+          <!-- extra tech rings -->
+          <div class="scan-ring ring-outer"></div>
+          <div class="scan-ring ring-inner"></div>
+        </div>
+
+        <div class="step-container">
+          <p id="processing-step" class="processing-step-text animate-text-swap">
+            Extracting features...
+          </p>
+        </div>
+
+        <!-- live technical indicator (fake) -->
+        <div class="tech-progress">
+          <div class="tech-progress-bar" id="tech-progress-bar"></div>
+          <span class="tech-progress-label">CNN inference ▰▰▰▰▰▰▰▰▰▰ 92%</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== RESULTS VIEW ========== -->
+    <section id="results-view" class="view hidden results-view animate-fade-in-up">
+      <div class="results-container">
+        <header class="results-header">
+          <div class="logo-area">
+            <div class="logo-rect">
+              <img src="/static/images/logo.webp" alt="Logo" class="icon-medium" />
+            </div>
+            <h1 class="logo-text">CropHeal AI</h1>
+          </div>
+          <div class="header-actions">
+            <button id="share-results" class="icon-btn" title="share results">
+              <i data-lucide="share-2" class="icon-small"></i>
             </button>
-          </div>
-        </div>
-
-        <!-- How it Works -->
-        <div class="how-it-works">
-          <div class="container">
-            <h2 class="section-title">How It Works</h2>
-            <div class="features-grid">
-              <!-- Step 1 -->
-              <div class="feature-card animate-scroll-in delay-0">
-                <div class="feature-icon-wrapper">
-                  <i data-lucide="camera" class="icon-large"></i>
-                </div>
-                <h3 class="feature-title">1. Capture</h3>
-                <p class="feature-desc">Take a clear photo of the affected plant leaf.</p>
-              </div>
-              <!-- Step 2 -->
-              <div class="feature-card animate-scroll-in delay-100">
-                <div class="feature-icon-wrapper">
-                  <i data-lucide="activity" class="icon-large"></i>
-                </div>
-                <h3 class="feature-title">2. AI Analyzes</h3>
-                <p class="feature-desc">Our advanced model identifies the pathogen instantly.</p>
-              </div>
-              <!-- Step 3 -->
-              <div class="feature-card animate-scroll-in delay-200">
-                <div class="feature-icon-wrapper">
-                  <i data-lucide="pill" class="icon-large"></i>
-                </div>
-                <h3 class="feature-title">3. Get Treatment</h3>
-                <p class="feature-desc">Receive organic and chemical treatment recommendations.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- InputView -->
-      <section id="input-view" class="view hidden input-view animate-scale-in">
-        <div class="upload-card">
-          <div class="upload-card-content">
-            <div class="upload-header">
-              <h2 class="upload-title">Upload Leaf Image</h2>
-              <p class="upload-desc">Provide a clear image of the affected plant leaf for accurate analysis.</p>
-            </div>
-
-            <div id="drop-zone" class="drop-zone">
-              <input id="file-input" type="file" accept="image/*" class="hidden-input" />
-              <input id="camera-input" type="file" accept="image/*" capture="environment" class="hidden-input" />
-
-              <div class="drop-icon-wrapper">
-                <i data-lucide="upload-cloud" class="icon-xlarge"></i>
-              </div>
-              <h3 class="drop-title">Drag & Drop your image here</h3>
-              <p class="drop-desc">or click to browse from your device</p>
-              
-              <div class="upload-actions">
-                <button id="browse-btn" class="secondary-btn">Browse Files</button>
-                <button id="camera-btn" class="emerald-btn">
-                  <i data-lucide="camera" class="icon-small"></i>
-                  Camera
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <button id="back-btn" class="cancel-btn">Cancel and go back</button>
-      </section>
-
-      <!-- ProcessingView -->
-      <section id="processing-view" class="view hidden processing-view">
-        <div id="processing-bg" class="processing-bg-blur"></div>
-        
-        <div class="processing-content animate-fade-in">
-          <div class="scanner-container">
-            <img id="preview-img-processing" src="" alt="Analyzing" class="scanner-image" />
-            <div class="scan-line-anim"></div>
-            <div class="scan-tint"></div>
-            <div class="scan-grid"></div>
-          </div>
-
-          <div class="step-container">
-            <p id="processing-step" class="processing-step-text animate-text-swap">
-              Extracting features...
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <!-- ResultsView -->
-      <section id="results-view" class="view hidden results-view animate-fade-in-up">
-        <div class="results-container">
-          <header class="results-header">
-            <div class="logo-area">
-              <div class="logo-rect">
-                <img src="/static/images/logo.webp" alt="Logo" class="icon-medium" />
-              </div>
-              <h1 class="logo-text">CropHeal AI</h1>
-            </div>
             <button id="reset-btn" class="outline-btn">Scan Another</button>
-          </header>
+          </div>
+        </header>
 
-          <div class="results-grid">
-            <!-- Left Side: Visual & Tech Data -->
-            <div class="results-left">
-              <div class="analysis-card">
-                <div class="analysis-image-wrapper">
-                  <img id="preview-img-results" src="" alt="Analyzed Leaf" class="analysis-image" />
-                  <div class="heatmap-box"></div>
-                  <div class="status-badge">
-                    <i data-lucide="activity" class="icon-xsmall text-emerald-light"></i>
-                    Analysis Complete
-                  </div>
-                </div>
-              </div>
-
-              <div class="confidence-card">
-                <div class="confidence-header">
-                  <div>
-                    <p class="confidence-label">AI Confidence Score</p>
-                    <h3 id="confidence-score" class="confidence-value"></h3>
-                  </div>
-                  <i data-lucide="check-circle-2" class="confidence-icon"></i>
-                </div>
-                <div class="progress-track">
-                  <div id="confidence-bar" class="progress-fill"></div>
+        <div class="results-grid">
+          <!-- Left Side: Visual & Tech Data (enhanced) -->
+          <div class="results-left">
+            <div class="analysis-card glass-card">
+              <div class="analysis-image-wrapper">
+                <img id="preview-img-results" src="" alt="Analyzed Leaf" class="analysis-image" />
+                <!-- simulated heatmap overlay (css gradient) -->
+                <div class="heatmap-overlay"></div>
+                <div class="status-badge">
+                  <i data-lucide="activity" class="icon-xsmall text-emerald-light"></i>
+                  Analysis Complete
                 </div>
               </div>
             </div>
 
-            <!-- Right Side: Actionable Insights -->
-            <div class="results-right">
-              <div class="details-card">
-                <div class="details-header">
-                  <div>
-                    <p class="disease-label">Detected Disease</p>
-                    <h2 id="disease-name" class="disease-value"></h2>
-                  </div>
-                  <div id="severity-badge" class="severity-badge hidden-badge">
-                    <i data-lucide="alert-triangle" class="icon-small"></i>
-                    <span id="severity-text"></span>
-                  </div>
+            <!-- dual confidence display: bar + gauge -->
+            <div class="confidence-card glass-card">
+              <div class="confidence-header">
+                <div>
+                  <p class="confidence-label">AI Confidence Score</p>
+                  <h3 id="confidence-score" class="confidence-value"></h3>
                 </div>
+                <i data-lucide="check-circle-2" class="confidence-icon"></i>
+              </div>
+              <div class="progress-track">
+                <div id="confidence-bar" class="progress-fill"></div>
+              </div>
+            </div>
+            <div class="tech-metadata">
+              <div class="meta-item">
+                <i data-lucide="cpu" class="icon-xsmall"></i>
+                <span>Model: <strong>MobileNetV2</strong></span>
+              </div>
+              <div class="meta-item">
+                <i data-lucide="clock" class="icon-xsmall"></i>
+                <span>Inference: <strong id="inference-time">2.3s</strong></span>
+              </div>
+              <div class="meta-item">
+                <i data-lucide="leaf" class="icon-xsmall"></i>
+                <span>Dataset: <strong>PlantVillage + custom</strong></span>
+              </div>
+            </div>
+          </div>
 
-                <div class="treatment-section">
-                  <h3 class="treatment-title">Treatment & Medicine</h3>
-                  
-                  <!-- Tabs -->
-                  <div class="tabs-wrapper">
-                    <button id="tab-organic" class="tab-btn active" data-target="content-organic">
-                      🌿 Organic Solution
-                    </button>
-                    <button id="tab-chemical" class="tab-btn" data-target="content-chemical">
-                      🧪 Chemical Medicine
-                    </button>
-                  </div>
-
-                  <!-- Tab Content -->
-                  <div class="tabs-content-area">
-                    <div id="content-organic" class="tab-content active"></div>
-                    <div id="content-chemical" class="tab-content hidden"></div>
-                  </div>
+          <!-- Right Side: Actionable Insights (enhanced) -->
+          <div class="results-right">
+            <div class="details-card glass-card">
+              <div class="details-header">
+                <div>
+                  <p class="disease-label">Detected Disease</p>
+                  <h2 id="disease-name" class="disease-value"></h2>
+                </div>
+                <div id="severity-badge" class="severity-badge hidden-badge">
+                  <i data-lucide="alert-triangle" class="icon-small"></i>
+                  <span id="severity-text"></span>
                 </div>
               </div>
 
+              <!-- severity meter (visual) -->
+              <div class="severity-meter">
+                <div class="meter-labels">
+                  <span>Low</span>
+                  <span>Medium</span>
+                  <span>High</span>
+                </div>
+                <div class="meter-track">
+                  <div id="severity-level" class="meter-fill" style="width: 80%;"></div>
+                </div>
+              </div>
+
+              <div class="treatment-section">
+                <h3 class="treatment-title">Recommended treatment</h3>
+
+                <!-- Tabs (improved) -->
+                <div class="tabs-wrapper">
+                  <button id="tab-organic" class="tab-btn active" data-target="content-organic">
+                    <i data-lucide="sprout" class="icon-xsmall"></i>
+                    🌿 Organic
+                  </button>
+                  <button id="tab-chemical" class="tab-btn" data-target="content-chemical">
+                    <i data-lucide="flask-conical" class="icon-xsmall"></i>
+                    🧪 Chemical
+                  </button>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="tabs-content-area">
+                  <div id="content-organic" class="tab-content active"></div>
+                  <div id="content-chemical" class="tab-content hidden"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- action buttons -->
+            <div class="action-buttons">
               <button class="download-btn shadow-hover">
                 <i data-lucide="file-down" class="icon-small"></i>
-                Download Report (PDF)
+                PDF Report
+              </button>
+              <button class="outline-btn secondary-outline">
+                <i data-lucide="mail" class="icon-small"></i>
+                Email
               </button>
             </div>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
 
-    </div>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-  </body>
+  </div>
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+
 </html>

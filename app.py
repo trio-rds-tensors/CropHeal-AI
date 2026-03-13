@@ -33,7 +33,6 @@ CLASS_NAMES = [
     'tomato_Tomato_Yellow_Leaf_Curl_Virus', 'tomato_Tomato_mosaic_virus', 'tomato_healthy'
 ]
 
-# Load model globally so it doesn't load on every request (faster)
 # Load model globally
 MODEL_PATH = 'plant_disease_model.keras'
 print("Loading model architecture and weights...")
@@ -65,7 +64,6 @@ def predict_plant_disease(image_path):
         return "Error: Model not loaded.", 0
 
     try:
-        # Load, resize, convert to array, and add batch dimension (Using updated Keras 3 utils)
         from tensorflow.keras.utils import load_img, img_to_array
         img = load_img(image_path, target_size=(224, 224))
         img_array = img_to_array(img)
@@ -75,11 +73,9 @@ def predict_plant_disease(image_path):
         return f"Error processing image: {e}", 0
 
     try:
-        # Predict the class
         predictions = model.predict(img_array)
         predicted_index = np.argmax(predictions[0])
         
-        # Calculate confidence percentage
         confidence = float(predictions[0][predicted_index]) * 100
         predicted_class = CLASS_NAMES[predicted_index]
 
@@ -87,7 +83,6 @@ def predict_plant_disease(image_path):
     except Exception as e:
         print(f"❌ MODEL PREDICTION ERROR: {e}")
         return f"Error during prediction: {e}", 0
-
 
 
 def get_treatment_suggestion(predicted_class):
@@ -107,14 +102,13 @@ def get_treatment_suggestion(predicted_class):
         plant_name = "Plant"
         disease_name = predicted_class
 
-    api_key = os.environ.get("API")
+    api_key = os.environ.get("GEMINI_API_KEY")
 
     try:
         client = genai.Client(api_key=api_key)
     except Exception as e:
          return json.dumps({"error": f"Error initializing Gemini client: {e}"})
 
-    # 🟢 PROMPT UPDATE: Ebar amra Gemini ke Severity o dite bolchi
     prompt = (
         f"A farmer's {plant_name} plant has been diagnosed with {disease_name}. "
         f"Provide exactly 3 short, actionable steps for an organic solution, and exactly 3 short, actionable steps for a chemical medicine. "
@@ -136,6 +130,8 @@ def get_treatment_suggestion(predicted_class):
 
     except Exception as e:
         return json.dumps({"error": f"Error fetching suggestion from Gemini: {e}"})
+
+
 # --- FLASK ROUTES ---
 
 @app.route('/')
@@ -156,16 +152,11 @@ def predict():
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(filepath)
 
-    # 1. Get Prediction & Confidence
     predicted_class, confidence = predict_plant_disease(filepath)
-    
-    # 2. Format Disease Name
     formatted_disease = predicted_class.replace('_', ' ').title()
 
-    # 3. Default severity just in case
     severity = "Low" if "healthy" in predicted_class.lower() else "High"
 
-    # 4. Get Treatments from Gemini & Extract Severity dynamically
     if "Error" not in predicted_class:
         suggestion_json_str = get_treatment_suggestion(predicted_class)
         
@@ -174,7 +165,6 @@ def predict():
         try:
             suggestions = json.loads(suggestion_json_str)
             
-            # 🟢 EKHANE GEMINI THEKE SEVERITY TA BER KORE NEWA HOCHHE
             if "severity" in suggestions:
                 severity = suggestions["severity"]
 
@@ -196,13 +186,13 @@ def predict():
         except:
             pass
 
-    # Return everything to the frontend
     return jsonify({
         'disease': formatted_disease,
         'confidence': confidence,
-        'severity': severity, # 🟢 Ei dynamic severity ebar frontend e jabe
+        'severity': severity, 
         'organic': suggestions.get('organic_solution', []),
         'chemical': suggestions.get('chemical_medicine', [])
     })
+
 if __name__ == '__main__':
     app.run(debug=True)

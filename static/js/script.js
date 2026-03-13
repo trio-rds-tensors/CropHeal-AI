@@ -118,11 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
 
     // Special actions per view
-    if (viewName === 'processing') {
-      startProcessing();
-    } else if (viewName === 'results') {
-      showResults();
-    } else if (viewName === 'input') {
+    if (viewName === 'input') {
       // Reset preview when entering input view (optional)
       if (!currentImage) {
         previewThumbnail.classList.add('hidden');
@@ -135,23 +131,23 @@ document.addEventListener('DOMContentLoaded', () => {
     e.stopPropagation();
   }
 
-  function handleFile(file) {
-    if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      currentImage = reader.result;
-      // Set images in processing and results
-      images.processing.src = currentImage;
-      images.results.src = currentImage;
-      images.bg.style.backgroundImage = `url(${currentImage})`;
-      // Show thumbnail in input view
-      images.thumbnail.src = currentImage;
-      previewThumbnail.classList.remove('hidden');
-      // Switch to processing
-      switchView('processing');
-    };
-  }
+  // function handleFile(file) {
+  //   if (!file || !file.type.startsWith('image/')) return;
+  //   const reader = new FileReader();
+  //   reader.readAsDataURL(file);
+  //   reader.onload = () => {
+  //     currentImage = reader.result;
+  //     // Set images in processing and results
+  //     images.processing.src = currentImage;
+  //     images.results.src = currentImage;
+  //     images.bg.style.backgroundImage = `url(${currentImage})`;
+  //     // Show thumbnail in input view
+  //     images.thumbnail.src = currentImage;
+  //     previewThumbnail.classList.remove('hidden');
+  //     // Switch to processing
+  //     switchView('processing');
+  //   };
+  // }
 
   // ==================== EVENT LISTENERS ====================
   // Home -> Input
@@ -210,44 +206,175 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ==================== PROCESSING VIEW ====================
-  function startProcessing() {
+  // function startProcessing() {
+  //   if (processingInterval) clearInterval(processingInterval);
+  //   if (progressInterval) clearInterval(progressInterval); // Purono progress clear korbe
+
+  //   currentStep = 0;
+  //   updateProcessingStep();
+
+  //   // --- NEW PROGRESS BAR LOGIC ---
+  //   let currentPercent = 0;
+  //   // 60 milliseconds por por update hobe jate animation smooth hoy
+  //   progressInterval = setInterval(() => {
+  //     currentPercent += 1; // 1% kore barbe
+  //     if (currentPercent >= 100) {
+  //       currentPercent = 100;
+  //       clearInterval(progressInterval);
+  //     }
+
+  //     // 10 ta block er modhye koyta fill hobe setar hisab
+  //     const filledBlocks = Math.floor(currentPercent / 10);
+  //     const emptyBlocks = 10 - filledBlocks;
+
+  //     // ▰ (filled) ar ▱ (empty) diye bar toiri
+  //     const barString = '▰'.repeat(filledBlocks) + '▱'.repeat(emptyBlocks);
+
+  //     techProgressLabel.textContent = `CNN inference ${barString} ${currentPercent}%`;
+  //   }, 60);
+  //   // ------------------------------
+
+  //   processingInterval = setInterval(() => {
+  //     currentStep++;
+  //     if (currentStep >= processingSteps.length) {
+  //       clearInterval(processingInterval);
+  //       processingInterval = null;
+  //       setTimeout(() => switchView('results'), 800);
+  //     } else {
+  //       updateProcessingStep();
+  //     }
+  //   }, 1500);
+  // }
+  let currentFile = null; // Add this state at the top
+
+  function handleFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+
+    currentFile = file; // Save the file for uploading
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      currentImage = reader.result;
+      images.processing.src = currentImage;
+      images.results.src = currentImage;
+      images.bg.style.backgroundImage = `url(${currentImage})`;
+      images.thumbnail.src = currentImage;
+      previewThumbnail.classList.remove('hidden');
+
+      switchView('processing');
+      analyzeImageWithFlask(currentFile); // Call the actual backend
+    };
+  }
+
+  async function analyzeImageWithFlask(file) {
     if (processingInterval) clearInterval(processingInterval);
-    if (progressInterval) clearInterval(progressInterval); // Purono progress clear korbe
+    if (progressInterval) clearInterval(progressInterval);
 
     currentStep = 0;
     updateProcessingStep();
 
-    // --- NEW PROGRESS BAR LOGIC ---
     let currentPercent = 0;
-    // 60 milliseconds por por update hobe jate animation smooth hoy
+
+    // Animate up to 90% and wait for the API
     progressInterval = setInterval(() => {
-      currentPercent += 1; // 1% kore barbe
-      if (currentPercent >= 100) {
-        currentPercent = 100;
-        clearInterval(progressInterval);
+      if (currentPercent < 90) {
+        currentPercent += 1;
       }
 
-      // 10 ta block er modhye koyta fill hobe setar hisab
       const filledBlocks = Math.floor(currentPercent / 10);
       const emptyBlocks = 10 - filledBlocks;
-
-      // ▰ (filled) ar ▱ (empty) diye bar toiri
       const barString = '▰'.repeat(filledBlocks) + '▱'.repeat(emptyBlocks);
 
       techProgressLabel.textContent = `CNN inference ${barString} ${currentPercent}%`;
-    }, 60);
-    // ------------------------------
+    }, 80);
 
+    // Cycle through text steps slowly
     processingInterval = setInterval(() => {
-      currentStep++;
-      if (currentStep >= processingSteps.length) {
-        clearInterval(processingInterval);
-        processingInterval = null;
-        setTimeout(() => switchView('results'), 800);
-      } else {
+      if (currentStep < processingSteps.length - 1) {
+        currentStep++;
         updateProcessingStep();
       }
-    }, 1500);
+    }, 2000);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      // Send image to Flask backend
+      const response = await fetch('/predict', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Network response was not ok');
+
+      const data = await response.json();
+
+      // Stop timers
+      clearInterval(progressInterval);
+      clearInterval(processingInterval);
+
+      // Jump to 100% on success
+      techProgressLabel.textContent = `CNN inference ▰▰▰▰▰▰▰▰▰▰ 100%`;
+      processingStepText.textContent = "Analysis Complete!";
+
+      // Wait half a second so user can see 100%, then show results
+      setTimeout(() => {
+        showResults(data);
+        switchView('results');
+      }, 600);
+
+    } catch (error) {
+      console.error('Error analyzing image:', error);
+      clearInterval(progressInterval);
+      clearInterval(processingInterval);
+      processingStepText.textContent = "Error: Could not connect to AI.";
+      techProgressLabel.textContent = `CNN inference ▱▱▱▱▱▱▱▱▱▱ FAILED`;
+    }
+  }
+
+  // Update showResults to accept actual data from Flask
+  // Update showResults to accept actual data from Flask
+  function showResults(data) {
+    const conf = data.confidence;
+    confidenceScore.textContent = conf + '%';
+
+    // confidenceChip er line ta ami comment kore dilam jate error na ase
+    // if (confidenceChip) confidenceChip.textContent = conf + '%';
+
+    diseaseName.textContent = data.disease;
+
+    // Severity badge
+    severityBadge.classList.remove('hidden-badge', 'High-risk', 'Medium-risk', 'Low-risk');
+    severityBadge.classList.add(data.severity + '-risk');
+    severityText.textContent = data.severity + ' Risk';
+
+    let severityWidth = data.severity === 'High' ? 80 : data.severity === 'Medium' ? 50 : 20;
+    severityLevel.style.width = severityWidth + '%';
+
+    setTimeout(() => {
+      confidenceBar.style.width = conf + '%';
+    }, 200);
+
+    // Random inference time update (jate web app ta real lagbe)
+    if (inferenceTimeSpan) {
+      inferenceTimeSpan.textContent = (Math.random() * 1.4 + 1.8).toFixed(1) + 's';
+    }
+
+    // Build tab contents with Gemini data
+    buildTabContent(organicContent, data.organic, 'organic');
+    buildTabContent(chemicalContent, data.chemical, 'chemical');
+
+    // Reset tabs
+    tabOrganic.classList.add('active');
+    tabChemical.classList.remove('active');
+    document.getElementById('content-organic').classList.remove('hidden', 'active');
+    document.getElementById('content-organic').classList.add('active');
+    document.getElementById('content-chemical').classList.add('hidden');
+    document.getElementById('content-chemical').classList.remove('active');
+
+    lucide.createIcons();
   }
 
   function updateProcessingStep() {
@@ -257,61 +384,60 @@ document.addEventListener('DOMContentLoaded', () => {
     void processingStepText.offsetWidth; // force reflow
     processingStepText.classList.add('animate-text-swap');
 
-    // Update tech progress bar and label (simulate progress)
+    // Update tech progress bar
     const progressPercent = Math.min(100, ((currentStep + 1) / processingSteps.length) * 100);
     techProgressBar.style.width = progressPercent + '%';
-    // Update label with some random inference-like text
-    const randomInference = (Math.random() * 30 + 70).toFixed(1);
-    techProgressLabel.textContent = `CNN inference ▰▰▰▰▰▰▰▰▰▰ ${randomInference}%`;
+
+    // EIKHAN THEKE RANDOM INFERENCE ER LINE DUTO DELETE KORA HOYECHHE
   }
 
   // ==================== RESULTS VIEW ====================
-  function showResults() {
-    // Populate data
-    const conf = mockResult.confidence;
-    confidenceScore.textContent = conf + '%';
-    // confidenceChip.textContent = conf + '%';
-    diseaseName.textContent = mockResult.disease;
+  // function showResults() {
+  //   // Populate data
+  //   const conf = mockResult.confidence;
+  //   confidenceScore.textContent = conf + '%';
+  //   // confidenceChip.textContent = conf + '%';
+  //   diseaseName.textContent = mockResult.disease;
 
-    // Severity badge
-    severityBadge.classList.remove('hidden-badge', 'High-risk', 'Medium-risk', 'Low-risk');
-    severityBadge.classList.add(mockResult.severity + '-risk');
-    severityText.textContent = mockResult.severity + ' Risk';
+  //   // Severity badge
+  //   severityBadge.classList.remove('hidden-badge', 'High-risk', 'Medium-risk', 'Low-risk');
+  //   severityBadge.classList.add(mockResult.severity + '-risk');
+  //   severityText.textContent = mockResult.severity + ' Risk';
 
-    // Severity meter (mock width based on severity)
-    let severityWidth = mockResult.severity === 'High' ? 80 : mockResult.severity === 'Medium' ? 50 : 20;
-    severityLevel.style.width = severityWidth + '%';
+  //   // Severity meter (mock width based on severity)
+  //   let severityWidth = mockResult.severity === 'High' ? 80 : mockResult.severity === 'Medium' ? 50 : 20;
+  //   severityLevel.style.width = severityWidth + '%';
 
-    // Confidence bar animation after a tiny delay
-    setTimeout(() => {
-      confidenceBar.style.width = conf + '%';
-    }, 200);
+  //   // Confidence bar animation after a tiny delay
+  //   setTimeout(() => {
+  //     confidenceBar.style.width = conf + '%';
+  //   }, 200);
 
-    // Update gauge (circular)
-    // const gaugeCircumference = 2 * Math.PI * 16; // r=16 -> ~100.53
-    // const gaugeOffset = gaugeCircumference - (conf / 100) * gaugeCircumference;
-    // gaugeFill.style.strokeDasharray = gaugeCircumference;
-    // gaugeFill.style.strokeDashoffset = gaugeOffset;
-    // gaugeText.textContent = conf + '%';
+  //   // Update gauge (circular)
+  //   // const gaugeCircumference = 2 * Math.PI * 16; // r=16 -> ~100.53
+  //   // const gaugeOffset = gaugeCircumference - (conf / 100) * gaugeCircumference;
+  //   // gaugeFill.style.strokeDasharray = gaugeCircumference;
+  //   // gaugeFill.style.strokeDashoffset = gaugeOffset;
+  //   // gaugeText.textContent = conf + '%';
 
-    // Random inference time between 1.8 and 3.2s
-    inferenceTimeSpan.textContent = (Math.random() * 1.4 + 1.8).toFixed(1) + 's';
+  //   // Random inference time between 1.8 and 3.2s
+  //   inferenceTimeSpan.textContent = (Math.random() * 1.4 + 1.8).toFixed(1) + 's';
 
-    // Build tab contents
-    buildTabContent(organicContent, mockResult.organic, 'organic');
-    buildTabContent(chemicalContent, mockResult.chemical, 'chemical');
+  //   // Build tab contents
+  //   buildTabContent(organicContent, mockResult.organic, 'organic');
+  //   buildTabContent(chemicalContent, mockResult.chemical, 'chemical');
 
-    // Re-init icons inside tabs
-    lucide.createIcons();
+  //   // Re-init icons inside tabs
+  //   lucide.createIcons();
 
-    // Reset tabs to organic active (in case previously switched)
-    tabOrganic.classList.add('active');
-    tabChemical.classList.remove('active');
-    document.getElementById('content-organic').classList.remove('hidden', 'active');
-    document.getElementById('content-organic').classList.add('active');
-    document.getElementById('content-chemical').classList.add('hidden');
-    document.getElementById('content-chemical').classList.remove('active');
-  }
+  //   // Reset tabs to organic active (in case previously switched)
+  //   tabOrganic.classList.add('active');
+  //   tabChemical.classList.remove('active');
+  //   document.getElementById('content-organic').classList.remove('hidden', 'active');
+  //   document.getElementById('content-organic').classList.add('active');
+  //   document.getElementById('content-chemical').classList.add('hidden');
+  //   document.getElementById('content-chemical').classList.remove('active');
+  // }
 
   function buildTabContent(container, items, type) {
     container.innerHTML = '';

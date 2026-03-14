@@ -1682,3 +1682,89 @@ body {
   backdrop-filter: blur(12px) saturate(180%);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
 }
+
+/* --- PDF Report Styles --- */
+.pdf-page {
+  width: 210mm;
+  height: 296mm;
+  /* 297mm er bodole 296mm dilam jate safely 1-page e thake */
+  padding: 40px 35px;
+  background: #ffffff;
+  font-family: 'Arial', sans-serif;
+  color: #263238;
+  box-sizing: border-box;
+  /* Eita khub important */
+  position: relative;
+  overflow: hidden;
+  /* Extra content jeno page break na kore */
+}
+
+.pdf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 70px;
+}
+
+.header-divider {
+  border-top: 2px solid #2E7D32;
+  margin: 10px 0 20px 0;
+}
+
+.section-title {
+  color: #2E7D32;
+  border-bottom: 1px solid #66BB6A;
+  padding-bottom: 5px;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.light-green-bg {
+  background-color: #F4F9F4;
+  padding: 15px;
+  border-radius: 6px;
+  border-left: 4px solid #2E7D32;
+  margin-bottom: 15px;
+  font-size: 12px;
+}
+
+.pdf-flex-row {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.pdf-col {
+  flex: 1;
+}
+
+.pdf-image-box {
+  border: 1px dashed #66BB6A;
+  padding: 5px;
+  text-align: center;
+  background: #F4F9F4;
+}
+
+.pdf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.pdf-table td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.pdf-footer {
+  position: absolute;
+  bottom: 40px;
+  left: 35px;
+  right: 35px;
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #66BB6A;
+  padding-top: 10px;
+  font-size: 10px;
+  color: #263238;
+}

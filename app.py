@@ -6,9 +6,11 @@ from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from tensorflow.keras import layers, models
 from tensorflow.keras.applications import MobileNetV2
-from google import genai
+from groq import Groq
 import uuid
-
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 # Load environment variables from .env file
 load_dotenv()
 
@@ -86,7 +88,7 @@ def predict_plant_disease(image_path):
 
 
 def get_treatment_suggestion(predicted_class):
-    """Parses the prediction and fetches a structured JSON suggestion from Gemini."""
+    """Parses the prediction and fetches a structured JSON suggestion from Groq."""
     if 'healthy' in predicted_class.lower():
         return json.dumps({
             "severity": "Low",
@@ -102,34 +104,34 @@ def get_treatment_suggestion(predicted_class):
         plant_name = "Plant"
         disease_name = predicted_class
 
-    api_key = os.environ.get("GEMINI_API_KEY")
-
     try:
-        client = genai.Client(api_key=api_key)
+        # Initialize Groq client (It automatically looks for GROQ_API_KEY in environment)
+        client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
     except Exception as e:
-         return json.dumps({"error": f"Error initializing Gemini client: {e}"})
+         return json.dumps({"error": f"Error initializing Groq client: {e}"})
 
     prompt = (
         f"A farmer's {plant_name} plant has been diagnosed with {disease_name}. "
-        f"Provide exactly 3 short, actionable steps for an organic solution, and exactly 3 short, actionable steps for a chemical medicine. "
-        f"Also, assess the general risk severity of this disease to the crop yield as 'Low', 'Medium', or 'High'. "
-        f"Return ONLY a valid JSON object with no markdown formatting, no code blocks, and no extra text. "
-        f"The JSON must have exactly this structure: "
-        f'{{"severity": "High", "organic_solution": ["step 1", "step 2", "step 3"], "chemical_medicine": ["step 1", "step 2", "step 3"]}}'
+        f"Provide the following exactly in JSON format: "
+        f"1. Exactly 3 short, actionable steps for an organic solution. "
+        f"2. Exactly 3 short, actionable steps for a chemical medicine. "
+        f"3. A 2-sentence 'explanation' of why this disease occurs and its visual symptoms. "
+        f"4. Exactly 4 short 'prevention_tips' to avoid this disease in the future. "
+        f"5. Assess the general risk 'severity' to the crop yield as 'Low', 'Medium', or 'High'. "
+        f"Return ONLY a valid JSON object with no markdown formatting. "
+        f"Required JSON structure: "
+        f'{{"severity": "High", "organic_solution": ["step 1", "step 2", "step 3"], "chemical_medicine": ["step 1", "step 2", "step 3"], "explanation": "Brief explanation here...", "prevention_tips": ["tip 1", "tip 2", "tip 3", "tip 4"]}}'
     )
 
     try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
         )
-        
-        clean_json = response.text.replace('```json', '').replace('```', '').strip()
-        parsed_json = json.loads(clean_json) 
-        return json.dumps(parsed_json) 
-
+        return completion.choices[0].message.content
     except Exception as e:
-        return json.dumps({"error": f"Error fetching suggestion from Gemini: {e}"})
+        return json.dumps({"error": str(e)})
 
 
 # --- FLASK ROUTES ---
@@ -160,7 +162,7 @@ def predict():
     if "Error" not in predicted_class:
         suggestion_json_str = get_treatment_suggestion(predicted_class)
         
-        print(f"\n--- DEBUG GEMINI RESPONSE ---\n{suggestion_json_str}\n-----------------------------\n")
+        print(f"\n--- DEBUG GROQ RESPONSE ---\n{suggestion_json_str}\n-----------------------------\n")
         
         try:
             suggestions = json.loads(suggestion_json_str)
@@ -170,11 +172,11 @@ def predict():
 
             if "error" in suggestions:
                 suggestions = {
-                    "organic_solution": ["⚠️ Gemini API Error:", suggestions["error"], "Please check your key."],
-                    "chemical_medicine": ["⚠️ Gemini API Error:", suggestions["error"], "Please check your key."]
+                    "organic_solution": ["⚠️ API Error:", suggestions["error"], "Please check your Groq API key."],
+                    "chemical_medicine": ["⚠️ API Error:", suggestions["error"], "Please check your Groq API key."]
                 }
         except:
-            suggestions = {"organic_solution": ["Error parsing JSON from Gemini"], "chemical_medicine": ["Error parsing JSON from Gemini"]}
+            suggestions = {"organic_solution": ["Error parsing JSON from Groq"], "chemical_medicine": ["Error parsing JSON from Groq"]}
     else:
         formatted_disease = "Detection Failed"
         suggestions = {"organic_solution": [], "chemical_medicine": []}
@@ -191,8 +193,70 @@ def predict():
         'confidence': confidence,
         'severity': severity, 
         'organic': suggestions.get('organic_solution', []),
-        'chemical': suggestions.get('chemical_medicine', [])
+        'chemical': suggestions.get('chemical_medicine', []),
+        'explanation': suggestions.get('explanation', 'No explanation available.'),
+        'prevention': suggestions.get('prevention_tips', [])
     })
+@app.route('/send_email', methods=['POST'])
+def send_email():
+    data = request.json
+    user_email = data.get('email')
+    disease = data.get('disease')
+    severity = data.get('severity')
+    organic = data.get('organic', [])
+    chemical = data.get('chemical', [])
+
+    # .env theke email credentials nebo
+    sender_email = os.environ.get("SENDER_EMAIL")
+    sender_password = os.environ.get("SENDER_PASSWORD") # Eita shei 16-letter App Password
+
+    if not sender_email or not sender_password:
+        return jsonify({'error': 'Email server is not configured properly.'}), 500
+
+    # Email toiri kora
+    msg = MIMEMultipart()
+    msg['From'] = f"CropHeal AI <{sender_email}>"
+    msg['To'] = user_email
+    msg['Subject'] = f"🌱 CropHeal AI Diagnosis Report: {disease}"
+
+    # Email er vitorer HTML Design
+    organic_html = "".join([f"<li>{item}</li>" for item in organic])
+    chemical_html = "".join([f"<li>{item}</li>" for item in chemical])
+
+    html_body = f"""
+    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
+        <div style="background-color: #2E7D32; color: white; padding: 20px; text-align: center;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 26px; letter-spacing: 1px;">🌿 CropHeal AI</h1>
+        </div>
+        <div style="padding: 20px;">
+            <p><strong>Disease Detected:</strong> <span style="color: #E53935;">{disease}</span></p>
+            <p><strong>Severity Level:</strong> {severity}</p>
+            
+            <h3 style="color: #2E7D32;">🌱 Organic Treatment:</h3>
+            <ul>{organic_html}</ul>
+            
+            <h3 style="color: #E53935;">🧪 Chemical Treatment:</h3>
+            <ul>{chemical_html}</ul>
+            
+            <p style="margin-top: 30px; font-size: 12px; color: #777;">
+                *This is an AI-generated report. Please consult an agricultural expert for large scale treatments.
+            </p>
+        </div>
+    </div>
+    """
+    msg.attach(MIMEText(html_body, 'html'))
+
+    # Email pathano (SMTP)
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        server.quit()
+        return jsonify({'success': 'Email sent successfully!'})
+    except Exception as e:
+        print(f"SMTP Error: {e}")
+        return jsonify({'error': 'Failed to send email. Please try again later.'}), 500
 
 if __name__ == "__main__":
     # Check if we should run in debug mode

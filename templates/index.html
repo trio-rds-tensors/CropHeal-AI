@@ -11,6 +11,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <!-- Additional library for subtle particles (optional, but adds wow) -->
   <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
 
@@ -36,7 +37,7 @@
         <div class="hero-content">
           <div class="hero-badge animate-fade-in-up delay-200">
             <img src="/static/images/logo.webp" alt="Logo" class="icon-small" />
-            <span class="badge-text">⚡ AI-Powered Agriculture 4.0</span>
+            <span class="badge-text">⚡ AI-Powered Agriculture 1.0</span>
           </div>
 
           <h1 class="hero-title animate-fade-in-up delay-300">
@@ -118,7 +119,7 @@
           <span class="stat-label">accuracy</span>
         </div>
         <div class="stat-item">
-          <span class="stat-value">47</span>
+          <span class="stat-value">5</span>
           <span class="stat-label">crops supported</span>
         </div>
       </div>
@@ -313,11 +314,11 @@
 
             <!-- action buttons -->
             <div class="action-buttons">
-              <button class="download-btn shadow-hover">
+              <button class="download-btn shadow-hover" onclick="downloadPDF()">
                 <i data-lucide="file-down" class="icon-small"></i>
                 PDF Report
               </button>
-              <button class="outline-btn secondary-outline">
+              <button class="outline-btn secondary-outline" onclick="sendEmailReport()">
                 <i data-lucide="mail" class="icon-small"></i>
                 Email
               </button>
@@ -327,6 +328,95 @@
       </div>
     </section>
 
+  </div>
+  <!-- pdf report -->
+  <div id="pdf-report-container" style="display: none;">
+    <div id="pdf-report" class="pdf-page">
+
+      <div class="pdf-header">
+        <div class="header-left">
+          <h1 style="color: #2E7D32; margin: 0; font-size: 24px; display: flex; align-items: center; gap: 8px;">
+            <img src="/static/images/logo.webp" alt="Logo" style="height: 28px; width: auto;">
+            CropHeal AI
+          </h1>
+          <p style="margin: 2px 0; font-size: 12px; color: #263238;">Plant Disease Diagnostic System</p>
+          <p style="margin: 0; font-size: 10px; color: #66BB6A;">AI Powered Agricultural Health Report</p>
+        </div>
+        <div class="header-right" style="text-align: right; font-size: 10px; color: #263238;">
+          <p><strong>Report ID:</strong> <span id="pdf-report-id">CH-2026-0000</span></p>
+          <p><strong>Generated Date:</strong> <span id="pdf-date"></span></p>
+          <p><strong>Model Version:</strong> v1.0 (Groq Llama 3)</p>
+        </div>
+      </div>
+      <div class="header-divider"></div>
+
+      <div class="pdf-section light-green-bg">
+        <h3 class="section-title">🌱 Plant Information</h3>
+        <p><strong>Detected Subject:</strong> <span id="pdf-plant-name">Loading...</span></p>
+        <p><strong>Diagnosis Time:</strong> <span id="pdf-time"></span></p>
+      </div>
+
+      <div class="pdf-flex-row">
+        <div class="pdf-col image-col">
+          <h3 class="section-title">📸 Analyzed Image</h3>
+          <div class="pdf-image-box">
+            <img id="pdf-uploaded-image" src="" alt="Analyzed Leaf"
+              style="max-width: 100%; max-height: 150px; border-radius: 4px;">
+          </div>
+          <p style="text-align: center; font-size: 10px; margin-top: 5px;">Image Quality: Acceptable</p>
+        </div>
+
+        <div class="pdf-col diag-col">
+          <h3 class="section-title">🔬 AI Diagnosis Result</h3>
+          <table class="pdf-table">
+            <tr>
+              <td><strong>Disease Detected</strong></td>
+              <td id="pdf-disease-name" style="font-weight: bold; color: #2E7D32;">Loading...</td>
+            </tr>
+            <tr>
+              <td><strong>Confidence Score</strong></td>
+              <td id="pdf-confidence">0%</td>
+            </tr>
+            <tr>
+              <td><strong>Severity Level</strong></td>
+              <td id="pdf-severity" style="font-weight: bold;">Unknown</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <h3 class="section-title" style="margin-top: 15px;">💊 Treatment Recommendation</h3>
+      <div class="pdf-flex-row">
+        <div class="pdf-col"
+          style="background: #F4F9F4; padding: 10px; border-radius: 5px; border-left: 3px solid #66BB6A;">
+          <h4 style="color: #2E7D32; margin-top: 0;">🌿 Organic Treatment</h4>
+          <ul id="pdf-organic-list" style="font-size: 11px; padding-left: 15px; margin-bottom: 0;"></ul>
+        </div>
+        <div class="pdf-col"
+          style="background: #FFF3E0; padding: 10px; border-radius: 5px; border-left: 3px solid #FFA726;">
+          <h4 style="color: #E53935; margin-top: 0;">🧪 Chemical Treatment</h4>
+          <ul id="pdf-chemical-list" style="font-size: 11px; padding-left: 15px; margin-bottom: 0;"></ul>
+        </div>
+      </div>
+      <div class="pdf-section" style="margin-top: 15px;">
+        <h3 class="section-title">🧠 Diagnosis Explanation</h3>
+        <p id="pdf-explanation"
+          style="font-size: 11px; background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #ddd;"></p>
+      </div>
+
+      <div class="pdf-section light-yellow-bg"
+        style="background: #FFFDE7; padding: 10px; border-left: 4px solid #FBC02D; margin-top: 15px; border-radius: 5px;">
+        <h3 class="section-title" style="color: #F57F17; border-bottom: 1px solid #FFF59D;">⚠️ Prevention Tips</h3>
+        <ul id="pdf-prevention-list" style="font-size: 11px; padding-left: 15px; margin-bottom: 0;"></ul>
+      </div>
+      <div class="pdf-footer">
+        <div style="flex: 1; text-align: left;">CropHeal AI System<br>Smart Agriculture</div>
+        <div style="flex: 2; text-align: center; font-size: 9px; color: #E53935;">
+          ⚠️ This report is AI generated and should be verified by an agricultural expert before large scale treatment.
+        </div>
+        <div style="flex: 1; text-align: right;">Page 1 of 1<br>www.cropheal-ai.com</div>
+      </div>
+    </div>
   </div>
   <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>

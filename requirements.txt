@@ -7,3 +7,4 @@ google-genai>=0.3.0
 Werkzeug>=3.0.0
 waitress
 groq
+requests

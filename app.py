@@ -1,16 +1,19 @@
 import os
 import numpy as np
 import json
+import requests  # OpenRouter er jonno
 from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from tensorflow.keras import layers, models
 from tensorflow.keras.applications import MobileNetV2
-from groq import Groq
+from google import genai  # Gemini er jonno
+from groq import Groq     # Groq er jonno
 import uuid
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+import datetime # Ekdom upore import kore niben jodi na thake
 # Load environment variables from .env file
 load_dotenv()
 
@@ -88,12 +91,14 @@ def predict_plant_disease(image_path):
 
 
 def get_treatment_suggestion(predicted_class):
-    """Parses the prediction and fetches a structured JSON suggestion from Groq."""
+    """Fetches suggestion using Fallback: Gemini -> OpenRouter -> Groq"""
     if 'healthy' in predicted_class.lower():
         return json.dumps({
             "severity": "Low",
             "organic_solution": ["Keep watering regularly.", "Ensure proper sunlight.", "No treatment needed."],
-            "chemical_medicine": ["None required.", "Avoid unnecessary fertilizers.", "Keep observing the plant."]
+            "chemical_medicine": ["None required.", "Avoid unnecessary fertilizers.", "Keep observing the plant."],
+            "explanation": "The AI model analyzed the leaf and found no visible signs of fungal, bacterial, or viral infections. The plant appears to be in excellent health.",
+            "prevention_tips": ["Maintain regular watering schedule", "Ensure good soil drainage", "Monitor for pests weekly", "Apply balanced organic compost"]
         })
 
     parts = predicted_class.split('_', 1)
@@ -103,12 +108,6 @@ def get_treatment_suggestion(predicted_class):
     else:
         plant_name = "Plant"
         disease_name = predicted_class
-
-    try:
-        # Initialize Groq client (It automatically looks for GROQ_API_KEY in environment)
-        client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-    except Exception as e:
-         return json.dumps({"error": f"Error initializing Groq client: {e}"})
 
     prompt = (
         f"A farmer's {plant_name} plant has been diagnosed with {disease_name}. "
@@ -123,16 +122,71 @@ def get_treatment_suggestion(predicted_class):
         f'{{"severity": "High", "organic_solution": ["step 1", "step 2", "step 3"], "chemical_medicine": ["step 1", "step 2", "step 3"], "explanation": "Brief explanation here...", "prevention_tips": ["tip 1", "tip 2", "tip 3", "tip 4"]}}'
     )
 
+    # ==========================================
+    # 1. First Priority: GEMINI API
+    # ==========================================
     try:
-        completion = client.chat.completions.create(
+        print("🔄 Trying Gemini API...")
+        gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+        response = gemini_client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt + " Please ensure the response is strictly JSON."
+        )
+        # Clean any markdown formatting Gemini might add
+        clean_json = response.text.replace('```json', '').replace('```', '').strip()
+        
+        # Verify if it's valid JSON before returning
+        json.loads(clean_json) 
+        print("✅ Success: Gemini")
+        return clean_json
+    except Exception as e:
+        print(f"⚠️ Gemini failed: {e}")
+
+    # ==========================================
+    # 2. Second Priority: OPENROUTER API
+    # ==========================================
+    try:
+        print("🔄 Trying OpenRouter API...")
+        headers = {
+            "Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "meta-llama/llama-3.3-70b-instruct", # OpenRouter er popular free/cheap model
+            "messages": [{"role": "user", "content": prompt}],
+            "response_format": {"type": "json_object"}
+        }
+        or_response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
+        or_response.raise_for_status()
+        
+        result_text = or_response.json()['choices'][0]['message']['content']
+        print("✅ Success: OpenRouter")
+        return result_text
+    except Exception as e:
+        print(f"⚠️ OpenRouter failed: {e}")
+
+    # ==========================================
+    # 3. Third Priority (Brahmastra): GROQ API
+    # ==========================================
+    try:
+        print("🔄 Trying Groq API...")
+        groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+        completion = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"}
         )
+        print("✅ Success: Groq")
         return completion.choices[0].message.content
     except Exception as e:
-        return json.dumps({"error": str(e)})
-
+        print(f"❌ Groq failed: {e}")
+        
+    # ==========================================
+    # ALL FAILED (Worst Case Scenario)
+    # ==========================================
+    return json.dumps({
+        "error": "All AI servers (Gemini, OpenRouter, Groq) are currently busy. Please try again in a few minutes."
+    })
 
 # --- FLASK ROUTES ---
 
@@ -197,7 +251,7 @@ def predict():
         'explanation': suggestions.get('explanation', 'No explanation available.'),
         'prevention': suggestions.get('prevention_tips', [])
     })
-import datetime # Ekdom upore import kore niben jodi na thake
+
 
 @app.route('/send_email', methods=['POST'])
 def send_email():

@@ -414,8 +414,41 @@
         <div style="flex: 2; text-align: center; font-size: 9px; color: #E53935;">
           ⚠️ This report is AI generated and should be verified by an agricultural expert before large scale treatment.
         </div>
-        <div style="flex: 1; text-align: right;">Page 1 of 1<br>www.cropheal-ai.com</div>
+        <div style="flex: 1; text-align: right;">Page 1 of
+          1<br>https://huggingface.co/spaces/trio-rds-tensor/CropHeal-AI</div>
       </div>
+    </div>
+  </div>
+
+  <!-- Email Toggle for sending email  -->
+  <div id="email-modal-overlay" class="hidden">
+    <div class="email-modal-box">
+
+      <div id="email-input-state">
+        <h3 style="color: #10b981; margin-top: 0; font-size: 20px;">✉️ Send Report</h3>
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">Enter your email address to receive the full
+          diagnostic report.</p>
+        <input type="email" id="custom-email-input" placeholder="your.email@example.com" autocomplete="email">
+        <div class="modal-actions">
+          <button id="cancel-email-btn" class="btn-cancel">Cancel</button>
+          <button id="confirm-email-btn" class="btn-send">Send Report</button>
+        </div>
+      </div>
+
+      <div id="email-loading-state" class="hidden">
+        <div class="spinner"></div>
+        <h3 style="color: #334155; margin-top: 15px;">Sending...</h3>
+        <p style="color: #64748b; font-size: 13px;">Please wait while we deliver the report to your inbox.</p>
+      </div>
+
+      <div id="email-result-state" class="hidden">
+        <div id="result-icon" style="font-size: 40px; margin-bottom: 10px;">✅</div>
+        <h3 id="result-title" style="color: #10b981; margin-top: 0;">Success!</h3>
+        <p id="result-message" style="color: #64748b; font-size: 14px; margin-bottom: 20px;">Report sent successfully.
+        </p>
+        <button id="close-modal-btn" class="btn-send" style="width: 100%;">Close</button>
+      </div>
+
     </div>
   </div>
   <script src="{{ url_for('static', filename='js/script.js') }}"></script>

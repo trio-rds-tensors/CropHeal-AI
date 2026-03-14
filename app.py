@@ -197,56 +197,114 @@ def predict():
         'explanation': suggestions.get('explanation', 'No explanation available.'),
         'prevention': suggestions.get('prevention_tips', [])
     })
+import datetime # Ekdom upore import kore niben jodi na thake
+
 @app.route('/send_email', methods=['POST'])
 def send_email():
     data = request.json
     user_email = data.get('email')
-    disease = data.get('disease')
-    severity = data.get('severity')
+    disease = data.get('disease', 'Unknown Disease')
+    severity = data.get('severity', 'Unknown')
     organic = data.get('organic', [])
     chemical = data.get('chemical', [])
 
-    # .env theke email credentials nebo
     sender_email = os.environ.get("SENDER_EMAIL")
-    sender_password = os.environ.get("SENDER_PASSWORD") # Eita shei 16-letter App Password
+    sender_password = os.environ.get("SENDER_PASSWORD")
 
     if not sender_email or not sender_password:
         return jsonify({'error': 'Email server is not configured properly.'}), 500
 
-    # Email toiri kora
+    # Dynamic styling values
+    severity_color = '#E53935' if severity.lower() == 'high' else '#FFA726' if severity.lower() == 'medium' else '#2E7D32'
+    current_date = datetime.datetime.now().strftime("%d %B, %Y")
+    report_id = "CH-" + str(uuid.uuid4().hex[:6].upper())
+
+    # Email List Items
+    organic_html = "".join([f"<li style='margin-bottom: 8px;'>{item}</li>" for item in organic])
+    chemical_html = "".join([f"<li style='margin-bottom: 8px;'>{item}</li>" for item in chemical])
+
+    # 🎨 PREMIUM EMAIL HTML TEMPLATE
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f7f6;">
+        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; margin: 30px auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+            
+            <tr>
+                <td style="background-color: #2E7D32; padding: 35px 20px; text-align: center;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 26px; letter-spacing: 1px;">🌿 CropHeal AI</h1>
+                    <p style="color: #c8e6c9; margin: 5px 0 0 0; font-size: 14px;">Plant Disease Diagnostic Report</p>
+                </td>
+            </tr>
+            
+            <tr>
+                <td style="padding: 15px 25px; background-color: #F4F9F4; border-bottom: 2px solid #66BB6A;">
+                    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="font-size: 13px; color: #263238;">
+                        <tr>
+                            <td align="left"><strong>Report ID:</strong> {report_id}</td>
+                            <td align="right"><strong>Date:</strong> {current_date}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+
+            <tr>
+                <td style="padding: 30px 25px;">
+                    <h2 style="color: #2E7D32; font-size: 18px; border-bottom: 1px solid #eeeeee; padding-bottom: 10px; margin-top: 0;">🔬 AI Diagnosis Result</h2>
+                    
+                    <table border="0" cellpadding="12" cellspacing="0" width="100%" style="background-color: #F8FAF8; border-radius: 6px; border-left: 4px solid #2E7D32; margin-bottom: 30px;">
+                        <tr>
+                            <td width="40%" style="color: #555555; font-size: 14px;"><strong>Disease Detected:</strong></td>
+                            <td width="60%" style="color: #2E7D32; font-weight: bold; font-size: 16px;">{disease}</td>
+                        </tr>
+                        <tr>
+                            <td style="color: #555555; font-size: 14px;"><strong>Severity Level:</strong></td>
+                            <td style="font-weight: bold; font-size: 15px; color: {severity_color};">{severity}</td>
+                        </tr>
+                    </table>
+
+                    <h2 style="color: #2E7D32; font-size: 18px; border-bottom: 1px solid #eeeeee; padding-bottom: 10px;">💊 Treatment Recommendation</h2>
+                    
+                    <div style="background-color: #F4F9F4; border: 1px solid #C8E6C9; border-radius: 6px; padding: 18px; margin-bottom: 15px;">
+                        <h3 style="color: #2E7D32; margin-top: 0; font-size: 16px;">🌿 Organic Treatment</h3>
+                        <ul style="margin: 0; padding-left: 20px; color: #333333; font-size: 14px; line-height: 1.6;">
+                            {organic_html}
+                        </ul>
+                    </div>
+
+                    <div style="background-color: #FFF8F8; border: 1px solid #FFCDD2; border-radius: 6px; padding: 18px; margin-bottom: 20px;">
+                        <h3 style="color: #E53935; margin-top: 0; font-size: 16px;">🧪 Chemical Treatment</h3>
+                        <ul style="margin: 0; padding-left: 20px; color: #333333; font-size: 14px; line-height: 1.6;">
+                            {chemical_html}
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+
+            <tr>
+                <td style="background-color: #eceff1; padding: 25px 20px; text-align: center; font-size: 12px; color: #546e7a; border-top: 1px solid #cfd8dc;">
+                    <p style="margin: 0 0 8px 0; font-size: 14px;"><strong>CropHeal AI System</strong></p>
+                    <p style="margin: 0 0 15px 0;">AI Powered Smart Agriculture</p>
+                    <div style="background-color: #ffcdd2; color: #c62828; padding: 10px; border-radius: 4px; font-size: 11px;">
+                        ⚠️ This report is AI-generated and should be verified by an agricultural expert before large-scale treatment application.
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+
     msg = MIMEMultipart()
     msg['From'] = f"CropHeal AI <{sender_email}>"
     msg['To'] = user_email
     msg['Subject'] = f"🌱 CropHeal AI Diagnosis Report: {disease}"
-
-    # Email er vitorer HTML Design
-    organic_html = "".join([f"<li>{item}</li>" for item in organic])
-    chemical_html = "".join([f"<li>{item}</li>" for item in chemical])
-
-    html_body = f"""
-    <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 10px; overflow: hidden;">
-        <div style="background-color: #2E7D32; color: white; padding: 20px; text-align: center;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 26px; letter-spacing: 1px;">🌿 CropHeal AI</h1>
-        </div>
-        <div style="padding: 20px;">
-            <p><strong>Disease Detected:</strong> <span style="color: #E53935;">{disease}</span></p>
-            <p><strong>Severity Level:</strong> {severity}</p>
-            
-            <h3 style="color: #2E7D32;">🌱 Organic Treatment:</h3>
-            <ul>{organic_html}</ul>
-            
-            <h3 style="color: #E53935;">🧪 Chemical Treatment:</h3>
-            <ul>{chemical_html}</ul>
-            
-            <p style="margin-top: 30px; font-size: 12px; color: #777;">
-                *This is an AI-generated report. Please consult an agricultural expert for large scale treatments.
-            </p>
-        </div>
-    </div>
-    """
     msg.attach(MIMEText(html_body, 'html'))
 
-    # Email pathano (SMTP)
     try:
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.starttls()
@@ -256,8 +314,7 @@ def send_email():
         return jsonify({'success': 'Email sent successfully!'})
     except Exception as e:
         print(f"SMTP Error: {e}")
-        return jsonify({'error': 'Failed to send email. Please try again later.'}), 500
-
+        return jsonify({'error': str(e)}), 500
 if __name__ == "__main__":
     # Check if we should run in debug mode
     debug_mode = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1", "t")

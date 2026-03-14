@@ -363,56 +363,126 @@ document.addEventListener('DOMContentLoaded', () => {
   switchView('home');
   lucide.createIcons();
 
-}); // <==== Ekhane DOMContentLoaded properly sesh holo!
+  // ===================================================================
+  // MODAL LOGIC (Email Popup er jonno DOM theke elements nawa)
+  // ===================================================================
+  const emailOverlay = document.getElementById('email-modal-overlay');
+  const stateInput = document.getElementById('email-input-state');
+  const stateLoading = document.getElementById('email-loading-state');
+  const stateResult = document.getElementById('email-result-state');
+  const emailInputBox = document.getElementById('custom-email-input');
 
+  if (emailOverlay) {
+    // Cancel Button logic
+    document.getElementById('cancel-email-btn').addEventListener('click', () => {
+      emailOverlay.classList.add('hidden');
+    });
 
-// ==================== PDF GENERATION (Global Scope) ====================
+    // Close Button logic
+    document.getElementById('close-modal-btn').addEventListener('click', () => {
+      emailOverlay.classList.add('hidden');
+    });
+
+    // Confirm (Send) Button logic
+    document.getElementById('confirm-email-btn').addEventListener('click', () => {
+      const userEmail = emailInputBox.value.trim();
+      const data = window.latestScanData;
+
+      if (!userEmail || !userEmail.includes('@') || !userEmail.includes('.')) {
+        emailInputBox.style.borderColor = "red";
+        setTimeout(() => emailInputBox.style.borderColor = "#cbd5e1", 1500);
+        return;
+      }
+
+      stateInput.classList.add('hidden');
+      stateLoading.classList.remove('hidden');
+
+      fetch('/send_email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: userEmail,
+          disease: data.disease,
+          severity: data.severity,
+          organic: data.organic,
+          chemical: data.chemical
+        })
+      })
+        .then(response => response.json())
+        .then(responseObj => {
+          stateLoading.classList.add('hidden');
+          stateResult.classList.remove('hidden');
+
+          const resultIcon = document.getElementById('result-icon');
+          const resultTitle = document.getElementById('result-title');
+          const resultMessage = document.getElementById('result-message');
+
+          if (responseObj.success) {
+            resultIcon.innerText = "✅";
+            resultTitle.innerText = "Success!";
+            resultTitle.style.color = "#10b981";
+            resultMessage.innerText = "Report has been sent to " + userEmail;
+          } else {
+            resultIcon.innerText = "❌";
+            resultTitle.innerText = "Failed";
+            resultTitle.style.color = "#ef4444";
+            resultMessage.innerText = responseObj.error || "Could not send the email.";
+          }
+        })
+        .catch(error => {
+          stateLoading.classList.add('hidden');
+          stateResult.classList.remove('hidden');
+
+          document.getElementById('result-icon').innerText = "⚠️";
+          document.getElementById('result-title').innerText = "Error";
+          document.getElementById('result-title').style.color = "#f59e0b";
+          document.getElementById('result-message').innerText = "A network error occurred.";
+        });
+    });
+  }
+
+}); // <==== DOMContentLoaded sesh
+
+// ==================== PDF GENERATION ====================
 function downloadPDF() {
   const data = window.latestScanData;
   if (!data) return alert("Please scan an image first!");
 
-  // 1. Fill dynamic data before generating
   const now = new Date();
   document.getElementById('pdf-date').innerText = now.toLocaleDateString('en-GB');
   document.getElementById('pdf-time').innerText = now.toLocaleTimeString('en-US');
   document.getElementById('pdf-report-id').innerText = "CH-" + now.getFullYear() + "-" + Math.floor(Math.random() * 10000);
 
-  // Set Image
   document.getElementById('pdf-uploaded-image').src = window.currentImageUrl;
 
-  // Set Results 
   document.getElementById('pdf-disease-name').innerText = data.disease;
   document.getElementById('pdf-plant-name').innerText = data.disease.split(' ')[0] || "Plant";
   document.getElementById('pdf-confidence').innerText = data.confidence + '%';
 
-  // Set Severity Color
   const severityElem = document.getElementById('pdf-severity');
   severityElem.innerText = data.severity;
   if (data.severity.toLowerCase() === 'high') severityElem.style.color = '#E53935';
   else if (data.severity.toLowerCase() === 'medium') severityElem.style.color = '#FFA726';
   else severityElem.style.color = '#2E7D32';
 
-  // Build Lists for PDF
   const organicList = document.getElementById('pdf-organic-list');
   const chemicalList = document.getElementById('pdf-chemical-list');
   const preventionList = document.getElementById('pdf-prevention-list');
 
   organicList.innerHTML = "";
   chemicalList.innerHTML = "";
-  preventionList.innerHTML = "";
+  if (preventionList) preventionList.innerHTML = "";
 
   data.organic.forEach(item => organicList.innerHTML += `<li>${item}</li>`);
   data.chemical.forEach(item => chemicalList.innerHTML += `<li>${item}</li>`);
 
-  // Explanation & Prevention (jeita Groq theke asche)
   document.getElementById('pdf-explanation').innerText = data.explanation || "No explanation available.";
-  if (data.prevention) {
+  if (data.prevention && preventionList) {
     data.prevention.forEach(item => preventionList.innerHTML += `<li>${item}</li>`);
   }
 
-  // 2. Generate PDF
   const element = document.getElementById('pdf-report');
-  element.parentElement.style.display = 'block'; // Temporarily show
+  element.parentElement.style.display = 'block';
 
   const opt = {
     margin: 0,
@@ -420,69 +490,35 @@ function downloadPDF() {
     image: { type: 'jpeg', quality: 1 },
     html2canvas: { scale: 2, useCORS: true },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] } // Eita extra page off korbe
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
   };
 
   html2pdf().set(opt).from(element).save().then(() => {
-    element.parentElement.style.display = 'none'; // Hide again after download
+    element.parentElement.style.display = 'none';
   });
 }
+
+// ==================== EMAIL POPUP TRIGGER ====================
+// HTML e email button er sathe ei function ta jora thakbe (onclick="sendEmailReport()")
 function sendEmailReport() {
-  // 1. Scan kora data aage thekei achhe kina check kora
   const data = window.latestScanData;
   if (!data) return alert("⚠️ Please scan a leaf image first!");
 
-  // 2. User er kach theke email input neya
-  const userEmail = prompt("Please enter your email address to receive the report:");
-  if (!userEmail) return;
+  const emailOverlay = document.getElementById('email-modal-overlay');
+  const stateInput = document.getElementById('email-input-state');
+  const stateLoading = document.getElementById('email-loading-state');
+  const stateResult = document.getElementById('email-result-state');
+  const emailInputBox = document.getElementById('custom-email-input');
 
-  if (!userEmail.includes('@') || !userEmail.includes('.')) {
-    alert("❌ Please enter a valid email address.");
-    return;
+  if (emailOverlay) {
+    emailInputBox.value = ""; // Purono text muche deya
+    stateInput.classList.remove('hidden');
+    stateLoading.classList.add('hidden');
+    stateResult.classList.add('hidden');
+
+    emailOverlay.classList.remove('hidden');
+    emailInputBox.focus();
+  } else {
+    alert("Error: Modal structure not found in HTML!");
   }
-
-  // 3. Button state change kora
-  const emailBtn = document.querySelector('.email-btn');
-  const originalText = emailBtn ? emailBtn.innerHTML : "Email";
-  if (emailBtn) {
-    emailBtn.innerHTML = "✉️ Sending...";
-    emailBtn.disabled = true;
-  }
-
-  // 4. Backend e pathano (Sorasori saved data theke, DOM er kono dorkar nei!)
-  fetch('/send_email', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      email: userEmail,
-      disease: data.disease,      // Direct AI data
-      severity: data.severity,    // Direct AI data
-      organic: data.organic,      // Direct AI data
-      chemical: data.chemical     // Direct AI data
-    })
-  })
-    .then(response => response.json())
-    .then(responseObj => {
-      // Button aager obosthay firiye ana
-      if (emailBtn) {
-        emailBtn.innerHTML = originalText;
-        emailBtn.disabled = false;
-      }
-
-      if (responseObj.success) {
-        alert("✅ Report sent successfully to " + userEmail);
-      } else {
-        alert("❌ Error: " + responseObj.error);
-      }
-    })
-    .catch(error => {
-      if (emailBtn) {
-        emailBtn.innerHTML = originalText;
-        emailBtn.disabled = false;
-      }
-      alert("❌ Failed to send email. Check console for details.");
-      console.error("Email API Error:", error);
-    });
 }

@@ -444,6 +444,8 @@ document.addEventListener('DOMContentLoaded', () => {
 }); // <==== DOMContentLoaded sesh
 
 // ==================== PDF GENERATION ====================
+// ==================== PDF GENERATION ====================
+// ==================== PDF GENERATION ====================
 function downloadPDF() {
   const data = window.latestScanData;
   if (!data) return alert("Please scan an image first!");
@@ -482,20 +484,38 @@ function downloadPDF() {
   }
 
   const element = document.getElementById('pdf-report');
-  element.parentElement.style.display = 'block';
+  const container = document.getElementById('pdf-report-container'); // Parent element
+
+  // 🟢 MAGIC FIX: ব্রাউজারকে ধোঁকা দেওয়া
+  // রিপোর্টটাকে স্ক্রিনের একদম উপরে রাখবো, কিন্তু সবার পেছনে (z-index: -9999) লুকিয়ে রাখবো।
+  // এতে html2canvas চোখের সামনেই ডাটা পাবে, কিন্তু ইউজার কিছুই টের পাবে না।
+  container.style.display = 'block';
+  container.style.position = 'fixed';
+  container.style.top = '0';
+  container.style.left = '0';
+  container.style.zIndex = '-9999';
+  container.style.width = '100vw';
+  container.style.backgroundColor = '#ffffff';
 
   const opt = {
     margin: 0,
     filename: 'CropHeal_Report_' + now.getTime() + '.pdf',
     image: { type: 'jpeg', quality: 1 },
-    html2canvas: { scale: 2, useCORS: true },
+    // 🟢 SCROLL BUG FIX: পেজ যতই স্ক্রল করা থাকুক, ছবি ঠিক জায়গা থেকেই উঠবে
+    html2canvas: { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
   };
 
-  html2pdf().set(opt).from(element).save().then(() => {
-    element.parentElement.style.display = 'none';
-  });
+  // 800ms সময় দিচ্ছি যাতে ছবি ও টেক্সট পুরোপুরি লোড হয়ে যায়
+  setTimeout(() => {
+    html2pdf().set(opt).from(element).save().then(() => {
+      // PDF ডাউনলোড শেষ হলে আবার সব লুকিয়ে ফেলবো
+      container.style.display = 'none';
+      container.style.position = 'static';
+      container.style.zIndex = 'auto';
+    });
+  }, 800);
 }
 
 // ==================== EMAIL POPUP TRIGGER ====================

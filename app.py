@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import threading
 import json
 import requests  # OpenRouter er jonno
 from flask import Flask, request, jsonify
@@ -187,6 +188,65 @@ def get_treatment_suggestion(predicted_class):
     return json.dumps({
         "error": "All AI servers (Gemini, OpenRouter, Groq) are currently busy. Please try again in a few minutes."
     })
+# ==========================================
+# ✉️ BACKGROUND EMAIL PROCESSOR (SMTP -> GOOGLE SCRIPT API)
+# ==========================================
+def process_email_fallback(user_email, disease, severity, organic, chemical, html_body):
+    sender_email = os.environ.get("SENDER_EMAIL")
+    sender_password = os.environ.get("SENDER_PASSWORD")
+    google_script_url = os.environ.get("GOOGLE_SCRIPT_URL")
+
+    # SMTP er jonno message object (Primary Attempt)
+    msg = MIMEMultipart()
+    msg['From'] = f"CropHeal AI <{sender_email}>"
+    msg['To'] = user_email
+    msg['Subject'] = f"🌱 CropHeal AI Diagnosis Report: {disease}"
+    msg.attach(MIMEText(html_body, 'html'))
+
+    # ------------------------------------------------
+    # ATTEMPT 1: GMAIL SMTP
+    # ------------------------------------------------
+    try:
+        print("🔄 [Email] Attempting SMTP...")
+        # Timeout 8 second jate Hugging Face e beshi deri na hoy
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=8)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        server.quit()
+        print(f"✅ [Email] Success: Sent via SMTP to {user_email}")
+        return # SMTP kaj korle ekhanei sesh
+    
+    except Exception as e:
+        print(f"⚠️ [Email] SMTP Blocked/Failed: {e}")
+        print("🔄 [Email] Switching to Google Script API Fallback...")
+
+    # ------------------------------------------------
+    # ATTEMPT 2: GOOGLE APPS SCRIPT API (The Ultimate Solution)
+    # ------------------------------------------------
+    if not google_script_url:
+        print("❌ [Email] Google Script URL missing in secrets!")
+        return
+
+    try:
+        payload = {
+            "to": user_email,
+            "subject": f"🌱 CropHeal AI Diagnosis Report: {disease}",
+            "body": html_body
+        }
+        
+        # Google Script post request pathano
+        # Note: requests auto redirect handle kore, tai ekhane problem hobe na
+        response = requests.post(google_script_url, json=payload, timeout=20)
+        
+        # Google Script 200/302 return kore success hole
+        if response.status_code == 200:
+            print(f"✅ [Email] Success: Sent via Google Script API to {user_email}")
+        else:
+            print(f"❌ [Email] Google API Error. Status: {response.status_code}")
+            
+    except Exception as e:
+        print(f"❌ [Email] All sending methods failed! Error: {e}")
 
 # --- FLASK ROUTES ---
 
@@ -262,12 +322,13 @@ def send_email():
     organic = data.get('organic', [])
     chemical = data.get('chemical', [])
 
-    sender_email = os.environ.get("SENDER_EMAIL")
-    sender_password = os.environ.get("SENDER_PASSWORD")
+    if not user_email:
+        return jsonify({'error': 'Email is required.'}), 400
 
-    if not sender_email or not sender_password:
-        return jsonify({'error': 'Email server is not configured properly.'}), 500
-
+    # HTML Template (Apnar banano sundor design-ta ekhane thakbe)
+    # severity_color, organic_html, etc. generate korar code thakbe
+    # (Ami dhorchi apni html_body ta toiri korchen ager moto)
+    # ... (Ager moto html_body generator code-tuku ekhane thakbe) ...
     # Dynamic styling values
     severity_color = '#E53935' if severity.lower() == 'high' else '#FFA726' if severity.lower() == 'medium' else '#2E7D32'
     current_date = datetime.datetime.now().strftime("%d %B, %Y")
@@ -352,23 +413,14 @@ def send_email():
     </body>
     </html>
     """
+    # Background-e thread start kora
+    thread = threading.Thread(
+        target=process_email_fallback, 
+        args=(user_email, disease, severity, organic, chemical, html_body)
+    )
+    thread.start()
 
-    msg = MIMEMultipart()
-    msg['From'] = f"CropHeal AI <{sender_email}>"
-    msg['To'] = user_email
-    msg['Subject'] = f"🌱 CropHeal AI Diagnosis Report: {disease}"
-    msg.attach(MIMEText(html_body, 'html'))
-
-    try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-        server.quit()
-        return jsonify({'success': 'Email sent successfully!'})
-    except Exception as e:
-        print(f"SMTP Error: {e}")
-        return jsonify({'error': str(e)}), 500
+    return jsonify({'success': 'Analysis report is being sent to your inbox!'})
 if __name__ == "__main__":
     # Check if we should run in debug mode
     debug_mode = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1", "t")

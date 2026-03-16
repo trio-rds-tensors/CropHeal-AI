@@ -50,12 +50,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const resetBtn = document.getElementById('reset-btn');
   const shareBtn = document.getElementById('share-results');
 
-  // Processing elements
   const processingStepText = document.getElementById('processing-step');
   const techProgressBar = document.getElementById('tech-progress-bar');
   const techProgressLabel = document.querySelector('.tech-progress-label');
 
-  // Results elements
   const confidenceScore = document.getElementById('confidence-score');
   const confidenceBar = document.getElementById('confidence-bar');
   const diseaseName = document.getElementById('disease-name');
@@ -66,10 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const organicContent = document.getElementById('content-organic');
   const chemicalContent = document.getElementById('content-chemical');
 
-  // Tabs
   const tabOrganic = document.getElementById('tab-organic');
   const tabChemical = document.getElementById('tab-chemical');
-  const tabContents = document.querySelectorAll('.tab-content');
 
   // ==================== STATE ====================
   let currentImage = null;
@@ -85,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   let currentStep = 0;
 
-  // PDF er jonno global state
   window.latestScanData = null;
   window.currentImageUrl = "";
 
@@ -117,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!file || !file.type.startsWith('image/')) return;
 
     currentFile = file;
-    window.currentImageUrl = URL.createObjectURL(file); // Save for PDF
+    window.currentImageUrl = URL.createObjectURL(file);
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -193,13 +188,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showResults(data) {
-    window.latestScanData = data; // PDF e pathanor jonno save korlam
+    window.latestScanData = data;
+    // Clear translated state on new scan
+    window.currentTranslatedData = null;
+    if (document.getElementById('lang-select')) document.getElementById('lang-select').value = 'en';
 
     const conf = data.confidence;
     confidenceScore.textContent = conf + '%';
     diseaseName.textContent = data.disease;
 
-    // Severity badge
     severityBadge.classList.remove('hidden-badge', 'High-risk', 'Medium-risk', 'Low-risk');
     severityBadge.classList.add(data.severity + '-risk');
     severityText.textContent = data.severity + ' Risk';
@@ -300,6 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
     cameraInput.value = '';
     previewThumbnail.classList.add('hidden');
     switchView('home');
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
   });
 
   shareBtn.addEventListener('click', () => {
@@ -347,25 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (processingInterval) clearInterval(processingInterval);
   });
 
-  const discoverScrollBtn = document.getElementById('discover-scroll');
-  const workingProcessSection = document.getElementById('working-process');
-
-  if (discoverScrollBtn && workingProcessSection) {
-    discoverScrollBtn.addEventListener('click', () => {
-      workingProcessSection.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
-    });
-  }
-
-  // Initial state setup
-  switchView('home');
-  lucide.createIcons();
-
-  // ===================================================================
-  // MODAL LOGIC (Email Popup er jonno DOM theke elements nawa)
-  // ===================================================================
+  // ==================== MODAL LOGIC ====================
   const emailOverlay = document.getElementById('email-modal-overlay');
   const stateInput = document.getElementById('email-input-state');
   const stateLoading = document.getElementById('email-loading-state');
@@ -373,20 +353,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const emailInputBox = document.getElementById('custom-email-input');
 
   if (emailOverlay) {
-    // Cancel Button logic
-    document.getElementById('cancel-email-btn').addEventListener('click', () => {
-      emailOverlay.classList.add('hidden');
-    });
+    document.getElementById('cancel-email-btn').addEventListener('click', () => emailOverlay.classList.add('hidden'));
+    document.getElementById('close-modal-btn').addEventListener('click', () => emailOverlay.classList.add('hidden'));
 
-    // Close Button logic
-    document.getElementById('close-modal-btn').addEventListener('click', () => {
-      emailOverlay.classList.add('hidden');
-    });
-
-    // Confirm (Send) Button logic
     document.getElementById('confirm-email-btn').addEventListener('click', () => {
       const userEmail = emailInputBox.value.trim();
-      const data = window.latestScanData;
+
+      // 🟢 MAGIC FIX: Translated data thakle seta nibe, nahole English ta nibe
+      const data = window.currentTranslatedData || window.latestScanData;
 
       if (!userEmail || !userEmail.includes('@') || !userEmail.includes('.')) {
         emailInputBox.style.borderColor = "red";
@@ -412,42 +386,213 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(responseObj => {
           stateLoading.classList.add('hidden');
           stateResult.classList.remove('hidden');
-
-          const resultIcon = document.getElementById('result-icon');
-          const resultTitle = document.getElementById('result-title');
-          const resultMessage = document.getElementById('result-message');
-
           if (responseObj.success) {
-            resultIcon.innerText = "✅";
-            resultTitle.innerText = "Success!";
-            resultTitle.style.color = "#10b981";
-            resultMessage.innerText = "Report has been sent to " + userEmail;
+            document.getElementById('result-icon').innerText = "✅";
+            document.getElementById('result-title').innerText = "Success!";
+            document.getElementById('result-message').innerText = "Report has been sent to " + userEmail;
           } else {
-            resultIcon.innerText = "❌";
-            resultTitle.innerText = "Failed";
-            resultTitle.style.color = "#ef4444";
-            resultMessage.innerText = responseObj.error || "Could not send the email.";
+            document.getElementById('result-icon').innerText = "❌";
+            document.getElementById('result-title').innerText = "Failed";
+            document.getElementById('result-message').innerText = responseObj.error || "Could not send.";
           }
         })
-        .catch(error => {
+        .catch(() => {
           stateLoading.classList.add('hidden');
           stateResult.classList.remove('hidden');
-
-          document.getElementById('result-icon').innerText = "⚠️";
           document.getElementById('result-title').innerText = "Error";
-          document.getElementById('result-title').style.color = "#f59e0b";
-          document.getElementById('result-message').innerText = "A network error occurred.";
         });
     });
   }
 
+  // ==================== TRANSLATION & AUDIO LOGIC ====================
+  window.currentTranslatedData = null;
+  let isSpeaking = false;
+
+  function updateUIWithData(data) {
+    document.getElementById('disease-name').innerText = data.disease;
+    document.getElementById('severity-text').innerText = data.severity + " Risk";
+    buildTabContent(document.getElementById('content-organic'), data.organic, 'organic');
+    buildTabContent(document.getElementById('content-chemical'), data.chemical, 'chemical');
+    lucide.createIcons();
+  }
+
+  const langSelect = document.getElementById('lang-select');
+  if (langSelect) {
+    langSelect.addEventListener('change', async (e) => {
+      const lang = e.target.value;
+      const dataToTranslate = window.latestScanData;
+
+      if (!dataToTranslate) return;
+
+      if (lang === 'en') {
+        window.currentTranslatedData = dataToTranslate;
+        updateUIWithData(dataToTranslate);
+        return;
+      }
+
+      langSelect.disabled = true;
+      const originalText = document.getElementById('disease-name').innerText;
+      document.getElementById('disease-name').innerText = "Translating...";
+
+      try {
+        const response = await fetch('/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            language: lang, data: {
+              disease: dataToTranslate.disease,
+              severity: dataToTranslate.severity,
+              organic: dataToTranslate.organic,
+              chemical: dataToTranslate.chemical,
+              // 🟢 MAGIC FIX: ebar explanation ar prevention o AI er kachhe pathachchi
+              explanation: dataToTranslate.explanation,
+              prevention: dataToTranslate.prevention
+            }
+          })
+        });
+
+        if (!response.ok) throw new Error(`Server returned ${response.status}`);
+
+        const rawTranslated = await response.json();
+
+        if (!rawTranslated.error) {
+          const aiData = rawTranslated.data || rawTranslated;
+
+          let safeOrganic = aiData.organic || aiData.organic_solution || aiData.organic_solutions || dataToTranslate.organic;
+          let safeChemical = aiData.chemical || aiData.chemical_medicine || aiData.chemical_medicines || dataToTranslate.chemical;
+
+          // 🟢 MAGIC FIX: AI theke prevention data collect kora
+          let safePrevention = aiData.prevention || aiData.prevention_tips || dataToTranslate.prevention || [];
+
+          if (!Array.isArray(safeOrganic)) safeOrganic = [safeOrganic];
+          if (!Array.isArray(safeChemical)) safeChemical = [safeChemical];
+          if (!Array.isArray(safePrevention)) safePrevention = [safePrevention];
+
+          const safeData = {
+            disease: aiData.disease || aiData.disease_name || dataToTranslate.disease,
+            severity: aiData.severity || dataToTranslate.severity,
+            organic: safeOrganic,
+            chemical: safeChemical,
+            explanation: aiData.explanation || dataToTranslate.explanation || "No explanation available.",
+            prevention: safePrevention
+          };
+
+          window.currentTranslatedData = safeData;
+          updateUIWithData(safeData);
+        } else {
+          alert("Translation server busy, keeping English.");
+          document.getElementById('disease-name').innerText = originalText;
+        }
+      } catch (err) {
+        console.error("❌ JS Parsing Error:", err);
+        alert("Error: " + err.message);
+        document.getElementById('disease-name').innerText = originalText;
+      }
+      langSelect.disabled = false;
+    });
+  }
+
+  // 2. Audio Play/Stop Listener (Mobile & PC Bulletproof)
+  const audioBtn = document.getElementById('audio-btn');
+  if (audioBtn) {
+
+    // 🟢 MAGIC FIX 1: মোবাইলের জন্য ভয়েসগুলো ঠিকমতো লোড করে রাখা (Asynchronous Fix)
+    let availableVoices = [];
+    const loadVoices = () => {
+      availableVoices = window.speechSynthesis.getVoices();
+    };
+    loadVoices();
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
+    audioBtn.addEventListener('click', () => {
+      try {
+        if (isSpeaking) {
+          window.speechSynthesis.cancel();
+          isSpeaking = false;
+          audioBtn.innerHTML = '<i data-lucide="volume-2" class="icon-small"></i> Listen';
+          lucide.createIcons();
+          return;
+        }
+
+        window.speechSynthesis.cancel(); // Clear stuck queue
+
+        const data = window.currentTranslatedData || window.latestScanData;
+        if (!data) return;
+
+        const langSelect = document.getElementById('lang-select');
+        const langVal = langSelect ? langSelect.value : 'en';
+
+        let langCode = 'en-US';
+        let textToSpeak = '';
+
+        const getSafeText = (arr, separator) => {
+          return Array.isArray(arr) ? arr.join(separator) : (arr || "Not available");
+        };
+
+        if (langVal === 'bn') {
+          langCode = 'bn-IN';
+          textToSpeak = `রোগের নাম: ${data.disease}। ঝুঁকির মাত্রা: ${data.severity}। জৈব চিকিৎসা: ${getSafeText(data.organic, '। ')}। রাসায়নিক চিকিৎসা: ${getSafeText(data.chemical, '। ')}।`;
+        } else if (langVal === 'hi') {
+          langCode = 'hi-IN';
+          textToSpeak = `बीमारी का नाम: ${data.disease}। खतरे का स्तर: ${data.severity}। जैविक उपचार: ${getSafeText(data.organic, '। ')}। रासायनिक उपचार: ${getSafeText(data.chemical, '। ')}।`;
+        } else {
+          langCode = 'en-US';
+          textToSpeak = `Disease: ${data.disease}. Severity: ${data.severity}. Organic Treatment: ${getSafeText(data.organic, '. ')}. Chemical Treatment: ${getSafeText(data.chemical, '. ')}.`;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+
+        // 🟢 MAGIC FIX 2: মোবাইলের জন্য সঠিক ভয়েস প্যাক মিলিয়ে দেওয়া
+        if (availableVoices.length > 0) {
+          let voice = availableVoices.find(v => v.lang === langCode || v.lang.replace('_', '-') === langCode);
+          if (!voice) voice = availableVoices.find(v => v.lang.startsWith(langVal));
+          if (voice) utterance.voice = voice;
+        }
+
+        utterance.lang = langCode;
+        utterance.rate = 0.85;
+
+        utterance.onstart = () => {
+          isSpeaking = true;
+          audioBtn.innerHTML = '<i data-lucide="square" class="icon-small"></i> Stop';
+          lucide.createIcons();
+        };
+
+        utterance.onend = () => {
+          isSpeaking = false;
+          audioBtn.innerHTML = '<i data-lucide="volume-2" class="icon-small"></i> Listen';
+          lucide.createIcons();
+        };
+
+        utterance.onerror = (e) => {
+          // 🟢 MAGIC FIX 3: Stop বাটনে ক্লিক করলে যে 'canceled' এরর হয়, সেটাকে ইগনোর করা
+          if (e.error !== 'canceled' && e.error !== 'interrupted') {
+            console.error("⚠️ Audio error:", e);
+            alert("Your browser/device does not support Text-to-Speech for this language.");
+          }
+          isSpeaking = false;
+          audioBtn.innerHTML = '<i data-lucide="volume-2" class="icon-small"></i> Listen';
+          lucide.createIcons();
+        };
+
+        window.speechSynthesis.speak(utterance);
+
+      } catch (error) {
+        console.error("❌ Audio Button Error:", error);
+      }
+    });
+  }
+  switchView('home');
+
 }); // <==== DOMContentLoaded sesh
 
-// ==================== PDF GENERATION ====================
-// ==================== PDF GENERATION ====================
-// ==================== PDF GENERATION ====================
+// ==================== GLOBAL FUNCTIONS (Called from HTML) ====================
 function downloadPDF() {
-  const data = window.latestScanData;
+  // 🟢 MAGIC FIX: Translated data theke PDF banabe
+  const data = window.currentTranslatedData || window.latestScanData;
+
   if (!data) return alert("Please scan an image first!");
 
   const now = new Date();
@@ -456,7 +601,6 @@ function downloadPDF() {
   document.getElementById('pdf-report-id').innerText = "CH-" + now.getFullYear() + "-" + Math.floor(Math.random() * 10000);
 
   document.getElementById('pdf-uploaded-image').src = window.currentImageUrl;
-
   document.getElementById('pdf-disease-name').innerText = data.disease;
   document.getElementById('pdf-plant-name').innerText = data.disease.split(' ')[0] || "Plant";
   document.getElementById('pdf-confidence').innerText = data.confidence + '%';
@@ -484,11 +628,8 @@ function downloadPDF() {
   }
 
   const element = document.getElementById('pdf-report');
-  const container = document.getElementById('pdf-report-container'); // Parent element
+  const container = document.getElementById('pdf-report-container');
 
-  // 🟢 MAGIC FIX: ব্রাউজারকে ধোঁকা দেওয়া
-  // রিপোর্টটাকে স্ক্রিনের একদম উপরে রাখবো, কিন্তু সবার পেছনে (z-index: -9999) লুকিয়ে রাখবো।
-  // এতে html2canvas চোখের সামনেই ডাটা পাবে, কিন্তু ইউজার কিছুই টের পাবে না।
   container.style.display = 'block';
   container.style.position = 'fixed';
   container.style.top = '0';
@@ -501,16 +642,13 @@ function downloadPDF() {
     margin: 0,
     filename: 'CropHeal_Report_' + now.getTime() + '.pdf',
     image: { type: 'jpeg', quality: 1 },
-    // 🟢 SCROLL BUG FIX: পেজ যতই স্ক্রল করা থাকুক, ছবি ঠিক জায়গা থেকেই উঠবে
     html2canvas: { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
   };
 
-  // 800ms সময় দিচ্ছি যাতে ছবি ও টেক্সট পুরোপুরি লোড হয়ে যায়
   setTimeout(() => {
     html2pdf().set(opt).from(element).save().then(() => {
-      // PDF ডাউনলোড শেষ হলে আবার সব লুকিয়ে ফেলবো
       container.style.display = 'none';
       container.style.position = 'static';
       container.style.zIndex = 'auto';
@@ -518,8 +656,6 @@ function downloadPDF() {
   }, 800);
 }
 
-// ==================== EMAIL POPUP TRIGGER ====================
-// HTML e email button er sathe ei function ta jora thakbe (onclick="sendEmailReport()")
 function sendEmailReport() {
   const data = window.latestScanData;
   if (!data) return alert("⚠️ Please scan a leaf image first!");
@@ -531,7 +667,7 @@ function sendEmailReport() {
   const emailInputBox = document.getElementById('custom-email-input');
 
   if (emailOverlay) {
-    emailInputBox.value = ""; // Purono text muche deya
+    emailInputBox.value = "";
     stateInput.classList.remove('hidden');
     stateLoading.classList.add('hidden');
     stateResult.classList.add('hidden');

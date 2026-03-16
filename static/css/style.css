@@ -1889,3 +1889,36 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* ================= MOBILE UI FIXES ================= */
+/* ================= MOBILE UI FIXES ================= */
+@media (max-width: 640px) {
+  .results-header {
+    flex-direction: column;
+    gap: 1.2rem;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+
+  #lang-select,
+  #reset-btn {
+    flex: 1;
+    min-width: 130px;
+    text-align: center;
+  }
+
+  .logo-area {
+    margin-bottom: -10px;
+  }
+
+  /* 🟢 MAGIC FIX: Mobile a logo ta boro kora holo */
+  .logo-area img {
+    width: 2.6rem;
+    height: 2.6rem;
+  }
+}

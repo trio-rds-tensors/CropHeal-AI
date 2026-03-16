@@ -300,8 +300,41 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.speechSynthesis) window.speechSynthesis.cancel();
   });
 
-  shareBtn.addEventListener('click', () => {
-    alert('Share feature coming soon! 🌱');
+  // ==================== SHARE FEATURE ====================
+  // ==================== SHARE FEATURE ====================
+  shareBtn.addEventListener('click', async () => {
+    const data = window.currentTranslatedData || window.latestScanData;
+
+    if (!data) {
+      return alert("⚠️ Please scan a leaf image first before sharing!");
+    }
+
+    const appUrl = "https://huggingface.co/spaces/trio-rds-tensor/CropHeal-AI";
+    const shareTitle = 'CropHeal AI - Smart Plant Diagnosis';
+
+    // 🟢 MAGIC FIX: Aro attractive ar professional marketing text
+    const shareText = `🚨 *Plant Health Alert!* 🚨\n\nI just scanned my crop using *CropHeal AI* and found:\n🦠 *Disease:* ${data.disease}\n⚠️ *Severity:* ${data.severity} Risk\n\n👨‍🌾 *What is CropHeal AI?*\nIt's a smart, AI-powered plant doctor that instantly detects diseases and gives you exact *Organic & Chemical* treatment plans. And the best part? It's 100% FREE! 🌿✨\n\n👇 *Scan your plants and save your crops today:*`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: appUrl
+        });
+        console.log('Share successful');
+      } catch (error) {
+        console.log('Sharing dismissed or failed:', error);
+      }
+    } else {
+      const fullText = `${shareTitle}\n\n${shareText}\n${appUrl}`;
+      try {
+        await navigator.clipboard.writeText(fullText);
+        alert("✅ Result & App Link copied to clipboard! You can now paste and share it anywhere (Facebook, WhatsApp etc).");
+      } catch (err) {
+        alert("Failed to copy. Please copy the URL manually.");
+      }
+    }
   });
 
   tabOrganic.addEventListener('click', () => {
@@ -586,7 +619,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   switchView('home');
 
-}); // <==== DOMContentLoaded sesh
+  // 🟢 MAGIC FIX: Discover button scroll logic (এখানে বসান)
+  const discoverBtn = document.getElementById('discover-scroll');
+  const targetSection = document.getElementById('working-process');
+
+  if (discoverBtn && targetSection) {
+    discoverBtn.addEventListener('click', () => {
+      targetSection.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    });
+  }
+}); // <==== DOMContentLoaded এর শেষ ব্র্যাকেট
 
 // ==================== GLOBAL FUNCTIONS (Called from HTML) ====================
 function downloadPDF() {

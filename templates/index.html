@@ -215,6 +215,12 @@
             <button id="share-results" class="icon-btn" title="share results">
               <i data-lucide="share-2" class="icon-small"></i>
             </button>
+            <select id="lang-select" class="outline-btn"
+              style="padding: 0.4rem 1rem; border-radius: 8px; cursor: pointer; font-weight: 600;">
+              <option value="en">English</option>
+              <option value="bn">বাংলা (Bengali)</option>
+              <option value="hi">हिंदी (Hindi)</option>
+            </select>
             <button id="reset-btn" class="outline-btn">Scan Another</button>
           </div>
         </header>
@@ -314,6 +320,10 @@
 
             <!-- action buttons -->
             <div class="action-buttons">
+              <button id="audio-btn" class="outline-btn secondary-outline">
+                <i data-lucide="volume-2" class="icon-small"></i>
+                Listen
+              </button>
               <button class="download-btn shadow-hover" onclick="downloadPDF()">
                 <i data-lucide="file-down" class="icon-small"></i>
                 PDF Report

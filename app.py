@@ -130,7 +130,7 @@ def get_treatment_suggestion(predicted_class):
         print("🔄 Trying Gemini API...")
         gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
         response = gemini_client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-2.5-flash',
             contents=prompt + " Please ensure the response is strictly JSON."
         )
         # Clean any markdown formatting Gemini might add
@@ -421,6 +421,93 @@ def send_email():
     thread.start()
 
     return jsonify({'success': 'Analysis report is being sent to your inbox!'})
+
+"""Translate Output Report in different language"""
+import re # Eita add kora holo regex er jonno
+
+@app.route('/translate', methods=['POST'])
+def translate_report():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+            
+        target_lang = data.get('language')
+        report_data = data.get('data')
+
+        if target_lang == 'en':
+            return jsonify(report_data)
+
+        lang_map = {'bn': 'Bengali', 'hi': 'Hindi'}
+        lang_name = lang_map.get(target_lang, target_lang)
+
+        prompt = (
+            f"Translate the values of this JSON object into {lang_name} language. "
+            f"Keep ALL the JSON keys EXACTLY the same in English (e.g., 'disease', 'severity', 'organic', 'chemical'). "
+            f"ONLY translate the string values and array items into {lang_name}. "
+            f"Return ONLY a valid JSON object. Do not add any extra text like 'Here is the translation'. "
+            f"Original JSON: {json.dumps(report_data)}"
+        )
+
+        # 🟢 MAGIC FIX: AI extra text dileo amra sudhu JSON tuku extract kore nebo
+        def extract_json(text):
+            match = re.search(r'\{.*\}', text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            return json.loads(text)
+
+        # ==========================================
+        # 1. GROQ
+        # ==========================================
+        try:
+            print(f"🔄 [Translate] Trying Groq...")
+            groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+            completion = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3
+            )
+            return jsonify(extract_json(completion.choices[0].message.content))
+        except Exception as e:
+            print(f"⚠️ Groq failed: {e}")
+
+        # ==========================================
+        # 2. OPENROUTER
+        # ==========================================
+        try:
+            print(f"🔄 [Translate] Trying OpenRouter...")
+            headers = {
+                "Authorization": f"Bearer {os.environ.get('OPENROUTER_API_KEY')}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": "meta-llama/llama-3.3-70b-instruct", 
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.3
+            }
+            or_response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload, timeout=15)
+            or_response.raise_for_status()
+            return jsonify(extract_json(or_response.json()['choices'][0]['message']['content']))
+        except Exception as e:
+            print(f"⚠️ OpenRouter failed: {e}")
+
+        # ==========================================
+        # 3. GEMINI
+        # ==========================================
+        try:
+            print(f"🔄 [Translate] Trying Gemini...")
+            gemini_client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+            # Model name updated to match your working predict route
+            response = gemini_client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+            return jsonify(extract_json(response.text))
+        except Exception as e:
+            print(f"❌ Gemini failed: {e}")
+
+        return jsonify({"error": "Translation servers are busy"}), 500
+
+    except Exception as e:
+        print(f"❌ Backend error: {e}")
+        return jsonify({"error": str(e)}), 500
 if __name__ == "__main__":
     # Check if we should run in debug mode
     debug_mode = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1", "t")

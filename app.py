@@ -15,6 +15,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import datetime # Ekdom upore import kore niben jodi na thake
+import re # Regex for translation extraction
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -25,43 +27,60 @@ UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# 1. Define the exact 29 class names
+# 1. Define the exact 33 class names (Updated)
 CLASS_NAMES = [
-    'corn_Blight', 'corn_Common_Rust', 'corn_Gray_Leaf_Spot', 'corn_Healthy',
-    'groundnut_early_leaf_spot', 'groundnut_early_rust', 'groundnut_healthy_leaf',
-    'groundnut_late_leaf_spot', 'groundnut_nutrition_deficiency', 'groundnut_rust',
-    'potato_Earlyblight', 'potato_Healthy', 'potato_LateBlight',
-    'rice_bacterial_leaf_blight', 'rice_brown_spot', 'rice_healthy',
-    'rice_leaf_blast', 'rice_leaf_scald', 'rice_narrow_brown_spot',
-    'tomato_Bacterial_spot', 'tomato_Early_blight', 'tomato_Late_blight',
-    'tomato_Leaf_Mold', 'tomato_Septoria_leaf_spot',
-    'tomato_Spider_mites Two-spotted_spider_mite', 'tomato_Target_Spot',
-    'tomato_Tomato_Yellow_Leaf_Curl_Virus', 'tomato_Tomato_mosaic_virus', 'tomato_healthy'
+    'corn_Blight', 'corn_Common_Rust', 'corn_Gray_Leaf_Spot', 'corn_Healthy', 
+    'groundnut_early_leaf_spot', 'groundnut_early_rust', 'groundnut_healthy_leaf', 
+    'groundnut_late_leaf_spot', 'groundnut_nutrition_deficiency', 'groundnut_rust', 
+    'potato_Early_Blight', 'potato_Healthy', 'potato_Late_Blight', 
+    'rice_bacterial_leaf_blight', 'rice_brown_spot', 'rice_healthy', 
+    'rice_hispa', 'rice_leaf_blast', 'rice_leaf_scald', 'rice_narrow_brown_spot', 
+    'rice_neck_blast', 'rice_sheath_blight', 'rice_tungro', 'tomato_Bacterial_spot', 
+    'tomato_Early_blight', 'tomato_Late_blight', 'tomato_Leaf_Mold', 
+    'tomato_Septoria_leaf_spot', 'tomato_Spider_mites Two-spotted_spider_mite', 
+    'tomato_Target_Spot', 'tomato_Tomato_Yellow_Leaf_Curl_Virus', 
+    'tomato_Tomato_mosaic_virus', 'tomato_healthy'
 ]
 
-# Load model globally
-MODEL_PATH = 'plant_disease_model.keras'
+# ==========================================
+# 🧠 MODEL LOADING WITH FALLBACK LOGIC
+# ==========================================
+KERAS_MODEL_PATH = 'plant_disease_model_keras.keras'
+H5_MODEL_PATH = 'plant_disease_model_h5.h5'
+
 print("Loading model architecture and weights...")
 try:
-    # 1. Base model toiri kora (weights=None karon amra .keras theke load korbo)
+    # 1. Base model toiri kora
     base_model = MobileNetV2(input_shape=(224, 224, 3), include_top=False, weights=None)
     
-    # 2. Ekdom apnar Colab training er moto Sequential model toiri kora
+    # 2. Sequential model toiri kora (Updated for 33 Classes)
     model = models.Sequential([
-        layers.Input(shape=(224, 224, 3)), # Input shape define kora holo
+        layers.Input(shape=(224, 224, 3)),
         layers.Rescaling(1./127.5, offset=-1),
         base_model,
         layers.GlobalAveragePooling2D(),
-        layers.Dense(29, activation='softmax')
+        layers.Dense(33, activation='softmax') # 🟢 MAGIC FIX: 33 Classes
     ])
     
-    # 3. .keras file theke sudhu Weights gulo (memory) load kora
-    model.load_weights(MODEL_PATH)
-    print("Model loaded successfully! 🚀")
-except Exception as e:
-    print(f"Error loading model: {e}")
-    model = None
+    # 3. Smart Fallback Logic: Keras fail korle H5 try korbe
+    try:
+        print("🔄 Trying to load .keras file...")
+        model.load_weights(KERAS_MODEL_PATH)
+        print("✅ Model loaded successfully from .keras! 🚀")
+    except Exception as e_keras:
+        print(f"⚠️ Failed to load .keras: {e_keras}")
+        print("🔄 Switching to .h5 fallback...")
+        
+        try:
+            model.load_weights(H5_MODEL_PATH)
+            print("✅ Model loaded successfully from .h5! 🚀")
+        except Exception as e_h5:
+            print(f"❌ Failed to load .h5 too: {e_h5}")
+            model = None
 
+except Exception as e:
+    print(f"❌ Error creating model architecture: {e}")
+    model = None
 
 def predict_plant_disease(image_path):
     """Processes the image and predicts the class + confidence."""
@@ -269,33 +288,56 @@ def predict():
     file.save(filepath)
 
     predicted_class, confidence = predict_plant_disease(filepath)
-    formatted_disease = predicted_class.replace('_', ' ').title()
+    
+    # 🟢 MAGIC FIX: Confidence Threshold Setup (7৫% এর কম হলে রিজেক্ট করবে)
+    CONFIDENCE_THRESHOLD = 75.0
 
-    severity = "Low" if "healthy" in predicted_class.lower() else "High"
-
-    if "Error" not in predicted_class:
-        suggestion_json_str = get_treatment_suggestion(predicted_class)
-        
-        print(f"\n--- DEBUG GROQ RESPONSE ---\n{suggestion_json_str}\n-----------------------------\n")
-        
-        try:
-            suggestions = json.loads(suggestion_json_str)
-            
-            if "severity" in suggestions:
-                severity = suggestions["severity"]
-
-            if "error" in suggestions:
-                suggestions = {
-                    "organic_solution": ["⚠️ API Error:", suggestions["error"], "Please check your Groq API key."],
-                    "chemical_medicine": ["⚠️ API Error:", suggestions["error"], "Please check your Groq API key."]
-                }
-        except:
-            suggestions = {"organic_solution": ["Error parsing JSON from Groq"], "chemical_medicine": ["Error parsing JSON from Groq"]}
-    else:
+    if "Error" in predicted_class:
         formatted_disease = "Detection Failed"
         suggestions = {"organic_solution": [], "chemical_medicine": []}
         severity = "High"
+        
+    elif confidence < CONFIDENCE_THRESHOLD:
+        # AI কনফিডেন্ট না হলে এই ডিফল্ট মেসেজ দেখাবে
+        formatted_disease = "Unclear Image / Not Recognized"
+        severity = "Unknown"
+        suggestions = {
+            "organic_solution": [
+                "Please upload a clear, close-up photo of a single leaf.", 
+                "Ensure there is good lighting and the leaf is in focus.",
+                "Make sure the image is actually a plant leaf."
+            ],
+            "chemical_medicine": [
+                "Cannot recommend chemicals without a confident diagnosis.",
+                "If your plant is sick, please try scanning a better photo."
+            ],
+            "explanation": f"The AI is only {confidence}% confident. This usually happens if the image is blurry, taken from too far away, or is not a recognized plant leaf.",
+            "prevention_tips": [
+                "Focus clearly on the affected area of the leaf", 
+                "Avoid taking photos of the whole field",
+                "Keep the camera steady while capturing"
+            ]
+        }
+    else:
+        # AI কনফিডেন্ট হলে নরমাল প্রসেস চলবে
+        formatted_disease = predicted_class.replace('_', ' ').title()
+        severity = "Low" if "healthy" in predicted_class.lower() else "High"
+        
+        suggestion_json_str = get_treatment_suggestion(predicted_class)
+        
+        try:
+            suggestions = json.loads(suggestion_json_str)
+            if "severity" in suggestions:
+                severity = suggestions["severity"]
+            if "error" in suggestions:
+                suggestions = {
+                    "organic_solution": ["⚠️ API Error:", suggestions["error"], "Please check AI API key."],
+                    "chemical_medicine": ["⚠️ API Error:", suggestions["error"], "Please check AI API key."]
+                }
+        except:
+            suggestions = {"organic_solution": ["Error parsing JSON from AI"], "chemical_medicine": ["Error parsing JSON from AI"]}
 
+    # Delete the temporary file
     if os.path.exists(filepath):
         try:
             os.remove(filepath)
